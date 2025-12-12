@@ -37,7 +37,7 @@ class RegisterActivity : AppCompatActivity() {
         }
 
         btnBack.setOnClickListener {
-            finish() // Fecha esta atividade e volta ao Login
+            finish()
         }
     }
 
