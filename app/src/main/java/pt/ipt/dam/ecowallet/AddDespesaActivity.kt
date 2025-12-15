@@ -62,13 +62,16 @@ class AddDespesaActivity : AppCompatActivity() {
 
     private fun tirarFoto() {
         val photoFile = criarFicheiroImagem()
+
+        // Verificamos se o ficheiro foi criado
         if (photoFile != null) {
             val authority = "${applicationContext.packageName}.fileprovider"
-            // Guardamos o URI
             val uri = FileProvider.getUriForFile(this, authority, photoFile)
+
+            // Guardamos na variável global
             photoUri = uri
 
-            // CORREÇÃO: Verificamos se 'uri' não é nulo antes de lançar
+            // CORREÇÃO: Só lançamos a câmara se o 'uri' NÃO for nulo
             if (uri != null) {
                 takePictureLauncher.launch(uri)
             }

@@ -2,4 +2,14 @@
 <resources>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
+    <color name="eco_on_primary">#FFFFFF</color>
+    <color name="eco_primary">#2E7D32</color>
+    <color name="eco_primary_container">#A5D6A7</color>
+    <color name="eco_on_primary_container">#1B5E20</color>
+    <color name="eco_secondary">#66BB6A</color>
+    <color name="eco_on_secondary">#000000</color>
+    <color name="eco_background">#F1F8E9</color>
+    <color name="eco_surface">#FFFFFF</color>
+    <color name="eco_on_surface">#1C1B1F</color>
+    <color name="eco_error">#BA1A1A</color>
 </resources>

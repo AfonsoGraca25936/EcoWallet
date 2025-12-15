@@ -1,8 +1,21 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
-    <!-- Base application theme. -->
     <style name="Base.Theme.EcoWallet" parent="Theme.Material3.DayNight.NoActionBar">
-        <!-- Customize your light theme here. -->
-        <!-- <item name="colorPrimary">@color/my_light_primary</item> -->
+
+        <item name="colorPrimary">@color/eco_primary</item>
+        <item name="colorOnPrimary">@color/eco_on_primary</item>
+
+        <item name="colorPrimaryContainer">@color/eco_primary_container</item>
+        <item name="colorOnPrimaryContainer">@color/eco_on_primary_container</item>
+
+        <item name="colorSecondary">@color/eco_secondary</item>
+        <item name="colorOnSecondary">@color/eco_on_secondary</item>
+
+        <item name="android:colorBackground">@color/eco_background</item>
+        <item name="colorSurface">@color/eco_surface</item>
+        <item name="colorOnSurface">@color/eco_on_surface</item>
+        <item name="colorError">@color/eco_error</item>
+
+        <item name="textInputStyle">@style/Widget.Material3.TextInputLayout.OutlinedBox</item>
     </style>
 
     <style name="Theme.EcoWallet" parent="Base.Theme.EcoWallet" />
