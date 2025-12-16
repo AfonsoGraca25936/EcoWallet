@@ -4,6 +4,8 @@ import android.os.Bundle
 import android.widget.Button
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import com.google.android.material.textfield.TextInputEditText
 import pt.ipt.dam.ecowallet.api.RetrofitClient
 import pt.ipt.dam.ecowallet.model.LoginResponse
@@ -13,10 +15,21 @@ import retrofit2.Callback
 import retrofit2.Response
 
 class RegisterActivity : AppCompatActivity() {
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_register)
+
+        // --- CORREÇÃO DE MARGENS ---
+        // Nota: Adicione android:id="@+id/mainContainer" no XML do registo se ainda não tiver
+        val mainView = findViewById<android.view.View>(R.id.mainContainer)
+        if (mainView != null) {
+            ViewCompat.setOnApplyWindowInsetsListener(mainView) { v, insets ->
+                val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+                val paddingBase = (24 * resources.displayMetrics.density).toInt()
+                v.setPadding(paddingBase, systemBars.top + paddingBase, paddingBase, systemBars.bottom + paddingBase)
+                insets
+            }
+        }
 
         val etUser = findViewById<TextInputEditText>(R.id.etRegUser)
         val etEmail = findViewById<TextInputEditText>(R.id.etRegEmail)
@@ -36,24 +49,20 @@ class RegisterActivity : AppCompatActivity() {
             }
         }
 
-        btnBack.setOnClickListener {
-            finish()
-        }
+        btnBack.setOnClickListener { finish() }
     }
 
     private fun performRegister(user: String, email: String, pass: String) {
         val request = RegisterRequest(user, email, pass)
-
         RetrofitClient.instance.register(request).enqueue(object : Callback<LoginResponse> {
             override fun onResponse(call: Call<LoginResponse>, response: Response<LoginResponse>) {
                 if (response.isSuccessful && response.body()?.error == false) {
                     Toast.makeText(applicationContext, "Registo efetuado! Faça login.", Toast.LENGTH_LONG).show()
-                    finish() // Volta automaticamente para o ecrã de login
+                    finish()
                 } else {
                     Toast.makeText(applicationContext, "Erro: ${response.body()?.message}", Toast.LENGTH_LONG).show()
                 }
             }
-
             override fun onFailure(call: Call<LoginResponse>, t: Throwable) {
                 Toast.makeText(applicationContext, "Erro de rede: ${t.message}", Toast.LENGTH_SHORT).show()
             }

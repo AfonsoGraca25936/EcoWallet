@@ -35,13 +35,11 @@ class DespesaAdapter(
         holder.categoria.text = despesa.categoria
         holder.data.text = despesa.data
 
-        // Carregar imagem com a biblioteca Coil
         if (!despesa.fotoCaminho.isNullOrEmpty()) {
             val imgFile = File(despesa.fotoCaminho)
             if (imgFile.exists()) {
                 holder.imagem.load(imgFile)
             } else {
-                // Tenta carregar da URL se for remoto (opcional, se a API devolver URL)
                 holder.imagem.load(R.mipmap.ic_launcher)
             }
         } else {
