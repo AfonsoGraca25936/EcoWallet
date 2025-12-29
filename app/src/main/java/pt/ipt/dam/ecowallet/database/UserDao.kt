@@ -8,16 +8,15 @@ import pt.ipt.dam.ecowallet.model.User
 
 @Dao
 interface UserDao {
-
-    // Insere o utilizador quando faz login
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(user: User)
 
-    // Vai buscar o utilizador logado (se existir)
-    @Query("SELECT * FROM utilizador_logado LIMIT 1")
+    @Query("DELETE FROM utilizador")
+    suspend fun logout()
+
+    @Query("SELECT * FROM utilizador LIMIT 1")
     suspend fun getUtilizador(): User?
 
-    // Apaga o utilizador (Logout)
-    @Query("DELETE FROM utilizador_logado")
-    suspend fun logout()
+    @Query("UPDATE utilizador SET saldo = :novoSaldo WHERE id = :userId")
+    suspend fun updateSaldo(userId: Int, novoSaldo: Double)
 }

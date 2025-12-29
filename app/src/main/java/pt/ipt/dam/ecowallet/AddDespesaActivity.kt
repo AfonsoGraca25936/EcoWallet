@@ -24,6 +24,7 @@ import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.UUID // <--- IMPORTANTE: Necessário para gerar o ID String
 
 class AddDespesaActivity : AppCompatActivity() {
 
@@ -35,6 +36,7 @@ class AddDespesaActivity : AppCompatActivity() {
     private var currentPhotoPath: String? = null
     private var photoUri: Uri? = null
 
+    // Lógica da Câmara
     private val takePictureLauncher = registerForActivityResult(ActivityResultContracts.TakePicture()) { success ->
         if (success && photoUri != null) {
             ivPreview.setImageURI(photoUri)
@@ -47,10 +49,10 @@ class AddDespesaActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_add_despesa)
 
-        // --- CORREÇÃO DE MARGENS ---
-        val mainView = findViewById<android.view.View>(R.id.mainContainer)
-        if (mainView != null) {
-            ViewCompat.setOnApplyWindowInsetsListener(mainView) { v, insets ->
+        // Configuração de Margens (Edge-to-Edge)
+        val mainContainer = findViewById<android.view.View>(R.id.mainContainer)
+        if (mainContainer != null) {
+            ViewCompat.setOnApplyWindowInsetsListener(mainContainer) { v, insets ->
                 val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
                 val paddingBase = (24 * resources.displayMetrics.density).toInt()
                 v.setPadding(paddingBase, systemBars.top + paddingBase, paddingBase, systemBars.bottom + paddingBase)
@@ -58,6 +60,7 @@ class AddDespesaActivity : AppCompatActivity() {
             }
         }
 
+        // Ligar componentes
         etTitulo = findViewById(R.id.etTitulo)
         etValor = findViewById(R.id.etValor)
         etCategoria = findViewById(R.id.etCategoria)
@@ -74,7 +77,6 @@ class AddDespesaActivity : AppCompatActivity() {
             val uri = FileProvider.getUriForFile(this, authority, photoFile)
             photoUri = uri
 
-            // Segurança extra para evitar crash
             if (uri != null) {
                 takePictureLauncher.launch(uri)
             }
@@ -107,7 +109,12 @@ class AddDespesaActivity : AppCompatActivity() {
         val valor = valorStr.toDoubleOrNull() ?: 0.0
         val dataHoje = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(Date())
 
+        // 1. GERAR ID STRING (UUID)
+        // Isto é fundamental agora que mudámos o ID de Int para String
+        val novoId = UUID.randomUUID().toString()
+
         val novaDespesa = Despesa(
+            id = novoId,
             titulo = titulo,
             valor = valor,
             categoria = categoria,
@@ -118,8 +125,21 @@ class AddDespesaActivity : AppCompatActivity() {
 
         lifecycleScope.launch {
             val db = AppDatabase.getDatabase(applicationContext)
+
+            // 2. Guardar na Base de Dados Local (Room)
             db.despesaDao().insert(novaDespesa)
+
+            // 3. Atualizar o Saldo do Utilizador
+            val user = db.utilizadorDao().getUtilizador()
+            if (user != null) {
+                val novoSaldo = user.saldo - valor
+                db.utilizadorDao().updateSaldo(user.id, novoSaldo)
+            }
+
+            // 4. Enviar para a API em background (Fire & Forget)
             enviarParaAPI(novaDespesa)
+
+            // 5. Fechar a atividade imediatamente para dar sensação de rapidez
             Toast.makeText(applicationContext, "Despesa guardada!", Toast.LENGTH_SHORT).show()
             finish()
         }
@@ -127,8 +147,13 @@ class AddDespesaActivity : AppCompatActivity() {
 
     private fun enviarParaAPI(despesa: Despesa) {
         RetrofitClient.instance.addDespesa(despesa).enqueue(object : Callback<Despesa> {
-            override fun onResponse(call: Call<Despesa>, response: Response<Despesa>) {}
-            override fun onFailure(call: Call<Despesa>, t: Throwable) {}
+            override fun onResponse(call: Call<Despesa>, response: Response<Despesa>) {
+                // Sucesso: O servidor recebeu.
+                // Na próxima sincronização da MainActivity, os dados ficam todos alinhados.
+            }
+            override fun onFailure(call: Call<Despesa>, t: Throwable) {
+                // Falha: Não faz mal, está guardado localmente com isSynced=false
+            }
         })
     }
 }

@@ -4,11 +4,10 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_marginHorizontal="16dp"
-    android:layout_marginVertical="8dp"
-    app:cardCornerRadius="16dp"
+    android:layout_marginHorizontal="8dp"
+    android:layout_marginVertical="6dp"
+    app:cardCornerRadius="12dp"
     app:cardElevation="2dp"
-    app:strokeWidth="0dp"
     android:backgroundTint="@color/white">
 
     <androidx.constraintlayout.widget.ConstraintLayout
@@ -16,64 +15,86 @@
         android:layout_height="wrap_content"
         android:padding="12dp">
 
-        <com.google.android.material.image.ShapeableImageView
+        <ImageView
             android:id="@+id/ivDespesaThumb"
-            android:layout_width="60dp"
-            android:layout_height="60dp"
+            android:layout_width="50dp"
+            android:layout_height="50dp"
             android:scaleType="centerCrop"
             android:src="@mipmap/ic_launcher"
-            android:background="@color/eco_background"
-            app:shapeAppearanceOverlay="@style/ShapeAppearance.Material3.Corner.Medium"
+            android:background="#EEEEEE"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent"
             app:layout_constraintBottom_toBottomOf="parent" />
 
-        <TextView
-            android:id="@+id/tvTitulo"
+        <LinearLayout
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginStart="16dp"
+            android:orientation="vertical"
+            android:layout_marginStart="12dp"
             android:layout_marginEnd="8dp"
-            android:text="Despesa"
-            android:textSize="16sp"
-            android:textStyle="bold"
-            android:textColor="@color/black"
             app:layout_constraintStart_toEndOf="@id/ivDespesaThumb"
+            app:layout_constraintEnd_toStartOf="@id/layoutDireita"
             app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintEnd_toStartOf="@id/tvValor"/>
+            app:layout_constraintBottom_toBottomOf="parent">
 
-        <TextView
-            android:id="@+id/tvCategoria"
+            <TextView
+                android:id="@+id/tvTitulo"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Despesa"
+                android:textStyle="bold"
+                android:textSize="16sp"
+                android:textColor="@color/black"
+                android:ellipsize="end"
+                android:maxLines="1"/>
+
+            <TextView
+                android:id="@+id/tvCategoria"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Categoria"
+                android:textSize="12sp"
+                android:textColor="#757575"/>
+
+            <TextView
+                android:id="@+id/tvData"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="01/01/2025"
+                android:textSize="12sp"
+                android:textColor="#9E9E9E"/>
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/layoutDireita"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Categoria"
-            android:textSize="13sp"
-            android:textColor="#757575"
-            android:layout_marginTop="4dp"
-            app:layout_constraintStart_toStartOf="@id/tvTitulo"
-            app:layout_constraintTop_toBottomOf="@id/tvTitulo" />
-
-        <TextView
-            android:id="@+id/tvData"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="01 Jan"
-            android:textSize="12sp"
-            android:textColor="#9E9E9E"
-            app:layout_constraintStart_toStartOf="@id/tvTitulo"
-            app:layout_constraintTop_toBottomOf="@id/tvCategoria" />
-
-        <TextView
-            android:id="@+id/tvValor"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="15.50€"
-            android:textSize="18sp"
-            android:textStyle="bold"
-            android:textColor="@color/eco_primary"
+            android:orientation="vertical"
+            android:gravity="end"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintBottom_toBottomOf="parent"/>
+            app:layout_constraintBottom_toBottomOf="parent">
+
+            <TextView
+                android:id="@+id/tvValor"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="15.50€"
+                android:textStyle="bold"
+                android:textSize="16sp"
+                android:textColor="@color/eco_primary"
+                android:layout_marginBottom="8dp"/>
+
+            <ImageView
+                android:id="@+id/btnDelete"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:src="@android:drawable/ic_menu_delete"
+                app:tint="#D32F2F"
+                android:clickable="true"
+                android:focusable="true"
+                android:background="?attr/selectableItemBackgroundBorderless"/>
+        </LinearLayout>
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 </com.google.android.material.card.MaterialCardView>

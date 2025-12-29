@@ -31,7 +31,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="24dp"
-        android:text="Autor:\nAfonso Graça - Nº 25936\nJoão Passrinho - Nº 25945"
+        android:text="Autor:\nAfonso Graça - Nº 25936\nJoão Passarinho - Nº 25945"
         android:gravity="center"
         android:textStyle="bold"
         android:textSize="16sp" />

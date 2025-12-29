@@ -7,17 +7,12 @@ import androidx.room.RoomDatabase
 import pt.ipt.dam.ecowallet.model.Despesa
 import pt.ipt.dam.ecowallet.model.User
 
-//Usa o singleton para a app so abrir a base de dados uma vez
-
-// 1. Definimos quais são as tabelas (Entities) e a versão da BD
-@Database(entities = [Despesa::class, User::class], version = 1, exportSchema = false)
+@Database(entities = [User::class, Despesa::class], version = 4, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
 
-    // 2. Os DAOs que criámos antes
-    abstract fun despesaDao(): DespesaDao
     abstract fun utilizadorDao(): UserDao
+    abstract fun despesaDao(): DespesaDao
 
-    // 3. O Singleton (Código padrão para evitar abrir 2 bases de dados ao mesmo tempo)
     companion object {
         @Volatile
         private var INSTANCE: AppDatabase? = null
@@ -27,8 +22,9 @@ abstract class AppDatabase : RoomDatabase() {
                 val instance = Room.databaseBuilder(
                     context.applicationContext,
                     AppDatabase::class.java,
-                    "ecowallet_database" // Nome do ficheiro da BD no telemóvel
-                ).fallbackToDestructiveMigration() // Se mudares a BD, ele recria-a (útil em dev)
+                    "ecowallet_database"
+                )
+                    .fallbackToDestructiveMigration()
                     .build()
                 INSTANCE = instance
                 instance
