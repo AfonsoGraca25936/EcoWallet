@@ -41,7 +41,6 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        // --- Layout e Margens ---
         val mainView = findViewById<View>(R.id.main)
         if (mainView != null) {
             ViewCompat.setOnApplyWindowInsetsListener(mainView) { v, insets ->
@@ -62,7 +61,6 @@ class MainActivity : AppCompatActivity() {
 
         btnEditSaldo.setOnClickListener { mostrarDialogoEditarSaldo() }
 
-        // --- Configuração da Lista ---
         adapter = DespesaAdapter(
             lista = emptyList(),
             onDespesaClick = { despesa ->
@@ -85,16 +83,20 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        // REVERTIDO: Voltamos a sincronizar sempre que o ecrã aparece.
-        // Isto garante que os dados estão sempre iguais aos do servidor.
         if (currentUser != null) {
             loadDespesasLocais()
-            syncDespesasAPI() // <--- Voltámos a pôr isto
-            updateSaldoUI(currentUser!!.saldo)
+            syncDespesasAPI()
+            // Atualizar o objeto currentUser da BD para ter o saldo mais recente
+            lifecycleScope.launch {
+                val user = database.utilizadorDao().getUtilizador()
+                if (user != null) {
+                    currentUser = user
+                    updateSaldoUI(user.saldo)
+                }
+            }
         }
     }
 
-    // --- SESSÃO E DADOS ---
     private fun checkSessionAndLoad() {
         lifecycleScope.launch {
             val user = database.utilizadorDao().getUtilizador()
@@ -125,10 +127,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun syncDespesasAPI() {
-        if (currentUser == null) return // Segurança
-
-        // Enviamos o ID do utilizador para a API só devolver as despesas dele
-        RetrofitClient.instance.getDespesas(currentUser!!.id).enqueue(object : Callback<List<Despesa>> {
+        val userId = currentUser?.id ?: return
+        RetrofitClient.instance.getDespesas(userId).enqueue(object : Callback<List<Despesa>> {
             override fun onResponse(call: Call<List<Despesa>>, response: Response<List<Despesa>>) {
                 if (response.isSuccessful) {
                     response.body()?.let { despesasRemotas ->
@@ -143,11 +143,10 @@ class MainActivity : AppCompatActivity() {
                     }
                 }
             }
-            override fun onFailure(call: Call<List<Despesa>>, t: Throwable) { }
+            override fun onFailure(call: Call<List<Despesa>>, t: Throwable) {}
         })
     }
 
-    // --- LÓGICA DE APAGAR (REVERTIDA PARA O PADRÃO) ---
     private fun mostrarDialogoApagar(despesa: Despesa) {
         AlertDialog.Builder(this)
             .setTitle("Apagar Despesa")
@@ -158,37 +157,39 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun apagarDespesa(despesa: Despesa) {
-        // 1. Apagar Localmente
         lifecycleScope.launch {
+            // 1. Atualizar Saldo (Devolver valor)
+            currentUser?.let { user ->
+                val novoSaldo = user.saldo + despesa.valor
+                database.utilizadorDao().updateSaldo(user.id, novoSaldo)
+                currentUser = user.copy(saldo = novoSaldo)
+                updateSaldoUI(novoSaldo)
+                
+                // Sincronizar saldo com API
+                RetrofitClient.instance.updateSaldo(user.id, mapOf("saldo" to novoSaldo)).enqueue(object : Callback<Void> {
+                    override fun onResponse(call: Call<Void>, response: Response<Void>) {}
+                    override fun onFailure(call: Call<Void>, t: Throwable) {}
+                })
+            }
+
+            // 2. Apagar Localmente
             database.despesaDao().delete(despesa)
             loadDespesasLocais()
-        }
 
-        // 2. Apagar no Servidor
-        // CORREÇÃO: Verificamos se a String não está vazia (isNotEmpty) em vez de (id > 0)
-        if (despesa.id.isNotEmpty()) {
-            RetrofitClient.instance.deleteDespesa(despesa.id).enqueue(object : Callback<Void> {
-                override fun onResponse(call: Call<Void>, response: Response<Void>) {
-                    if (response.isSuccessful) {
-                        Toast.makeText(applicationContext, "Apagado do servidor!", Toast.LENGTH_SHORT).show()
-                    } else {
-                        // Se der erro 404 é porque já não existe, o que é bom para nós
-                        if (response.code() == 404) {
-                            Toast.makeText(applicationContext, "Já não existia no servidor.", Toast.LENGTH_SHORT).show()
-                        } else {
-                            Toast.makeText(applicationContext, "Erro servidor: ${response.code()}", Toast.LENGTH_SHORT).show()
+            // 3. Apagar no Servidor
+            if (despesa.id.isNotEmpty()) {
+                RetrofitClient.instance.deleteDespesa(despesa.id).enqueue(object : Callback<Void> {
+                    override fun onResponse(call: Call<Void>, response: Response<Void>) {
+                        if (response.isSuccessful) {
+                            Toast.makeText(applicationContext, "Apagado!", Toast.LENGTH_SHORT).show()
                         }
                     }
-                }
-
-                override fun onFailure(call: Call<Void>, t: Throwable) {
-                    Toast.makeText(applicationContext, "Sem net (Apagado localmente)", Toast.LENGTH_SHORT).show()
-                }
-            })
+                    override fun onFailure(call: Call<Void>, t: Throwable) {}
+                })
+            }
         }
     }
 
-    // --- SALDO ---
     private fun updateSaldoUI(valor: Double) {
         tvSaldo.text = String.format("%.2f€", valor)
     }
@@ -216,15 +217,30 @@ class MainActivity : AppCompatActivity() {
     private fun guardarNovoSaldo(novoSaldo: Double) {
         lifecycleScope.launch {
             currentUser?.let { user ->
+                // 1. Atualizar Localmente (para ser rápido)
                 database.utilizadorDao().updateSaldo(user.id, novoSaldo)
                 currentUser = user.copy(saldo = novoSaldo)
                 updateSaldoUI(novoSaldo)
-                Toast.makeText(applicationContext, "Saldo atualizado!", Toast.LENGTH_SHORT).show()
+
+                // 2. Avisar o Servidor (O SEGREDO ESTÁ AQUI)
+                val request = pt.ipt.dam.ecowallet.model.SaldoRequest(saldo = novoSaldo)
+
+                RetrofitClient.instance.updateSaldo(user.id, request).enqueue(object : Callback<Void> {
+                    override fun onResponse(call: Call<Void>, response: Response<Void>) {
+                        if (response.isSuccessful) {
+                            Toast.makeText(applicationContext, "Saldo guardado na nuvem!", Toast.LENGTH_SHORT).show()
+                        } else {
+                            Toast.makeText(applicationContext, "Erro a guardar online", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                    override fun onFailure(call: Call<Void>, t: Throwable) {
+                        Toast.makeText(applicationContext, "Sem net: Saldo guardado só no telemóvel", Toast.LENGTH_LONG).show()
+                    }
+                })
             }
         }
     }
 
-    // --- MENUS ---
     override fun onCreateOptionsMenu(menu: Menu?): Boolean {
         menuInflater.inflate(R.menu.menu_main, menu)
         return true

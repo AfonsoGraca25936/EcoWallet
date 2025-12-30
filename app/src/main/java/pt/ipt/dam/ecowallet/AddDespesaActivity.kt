@@ -109,49 +109,50 @@ class AddDespesaActivity : AppCompatActivity() {
         lifecycleScope.launch {
             val db = AppDatabase.getDatabase(applicationContext)
 
-            // 1. IMPORTANTE: Buscar o Utilizador para saber o ID dele
+            // 1. Buscar o Utilizador
             val user = db.utilizadorDao().getUtilizador()
+            if (user != null) {
+                val novoSaldo = user.saldo - valor
+                
+                // 2. Atualizar Saldo Localmente
+                db.utilizadorDao().updateSaldo(user.id, novoSaldo)
 
-            if (user == null) {
-                Toast.makeText(this@AddDespesaActivity, "Erro: Inicie sessão novamente", Toast.LENGTH_SHORT).show()
-                return@launch
+                // 3. Sincronizar Saldo com a API
+                RetrofitClient.instance.updateSaldo(user.id, mapOf("saldo" to novoSaldo)).enqueue(object : Callback<Void> {
+                    override fun onResponse(call: Call<Void>, response: Response<Void>) {}
+                    override fun onFailure(call: Call<Void>, t: Throwable) {}
+                })
+
+                // 4. Criar a Despesa
+                val novaDespesa = Despesa(
+                    id = UUID.randomUUID().toString(),
+                    userId = user.id,
+                    titulo = titulo,
+                    valor = valor,
+                    categoria = categoria,
+                    data = dataHoje,
+                    fotoCaminho = currentPhotoPath,
+                    isSynced = false
+                )
+
+                // 5. Guardar Despesa Localmente
+                db.despesaDao().insert(novaDespesa)
+
+                // 6. Enviar Despesa para API
+                enviarParaAPI(novaDespesa)
+
+                Toast.makeText(applicationContext, "Despesa guardada!", Toast.LENGTH_SHORT).show()
+                finish()
+            } else {
+                Toast.makeText(applicationContext, "Erro: Utilizador não encontrado", Toast.LENGTH_SHORT).show()
             }
-
-            // 2. Criar a Despesa INCLUINDO O USER ID
-            val novaDespesa = Despesa(
-                id = UUID.randomUUID().toString(),
-                userId = user.id, // <--- AQUI ESTAVA O ERRO (Faltava esta linha)
-                titulo = titulo,
-                valor = valor,
-                categoria = categoria,
-                data = dataHoje,
-                fotoCaminho = currentPhotoPath,
-                isSynced = false
-            )
-
-            // 3. Guardar na BD Local
-            db.despesaDao().insert(novaDespesa)
-
-            // 4. Atualizar Saldo
-            val novoSaldo = user.saldo - valor
-            db.utilizadorDao().updateSaldo(user.id, novoSaldo)
-
-            // 5. Enviar para API
-            enviarParaAPI(novaDespesa)
-
-            Toast.makeText(applicationContext, "Despesa guardada!", Toast.LENGTH_SHORT).show()
-            finish()
         }
     }
 
     private fun enviarParaAPI(despesa: Despesa) {
         RetrofitClient.instance.addDespesa(despesa).enqueue(object : Callback<Despesa> {
-            override fun onResponse(call: Call<Despesa>, response: Response<Despesa>) {
-                // Sucesso
-            }
-            override fun onFailure(call: Call<Despesa>, t: Throwable) {
-                // Falha
-            }
+            override fun onResponse(call: Call<Despesa>, response: Response<Despesa>) {}
+            override fun onFailure(call: Call<Despesa>, t: Throwable) {}
         })
     }
 }
