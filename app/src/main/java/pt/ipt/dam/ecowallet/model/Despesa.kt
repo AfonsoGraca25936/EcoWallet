@@ -6,9 +6,11 @@ import com.google.gson.annotations.SerializedName
 
 @Entity(tableName = "despesa")
 data class Despesa(
-    @PrimaryKey(autoGenerate = false) // MongoDB gera o ID, ou nós geramos um UUID
-    @SerializedName("_id") // O Mongo manda "_id", mas nós usamos "id" no código
+    @PrimaryKey(autoGenerate = false)
+    @SerializedName("_id")
     var id: String = "",
+
+    val userId: String, // <--- NOVO CAMPO: Diz de quem é a despesa
 
     val titulo: String,
     val valor: Double,

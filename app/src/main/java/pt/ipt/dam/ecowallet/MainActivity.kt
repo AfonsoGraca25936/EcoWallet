@@ -125,7 +125,10 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun syncDespesasAPI() {
-        RetrofitClient.instance.getDespesas().enqueue(object : Callback<List<Despesa>> {
+        if (currentUser == null) return // Segurança
+
+        // Enviamos o ID do utilizador para a API só devolver as despesas dele
+        RetrofitClient.instance.getDespesas(currentUser!!.id).enqueue(object : Callback<List<Despesa>> {
             override fun onResponse(call: Call<List<Despesa>>, response: Response<List<Despesa>>) {
                 if (response.isSuccessful) {
                     response.body()?.let { despesasRemotas ->
@@ -140,9 +143,7 @@ class MainActivity : AppCompatActivity() {
                     }
                 }
             }
-            override fun onFailure(call: Call<List<Despesa>>, t: Throwable) {
-                // Falha silenciosa em background
-            }
+            override fun onFailure(call: Call<List<Despesa>>, t: Throwable) { }
         })
     }
 

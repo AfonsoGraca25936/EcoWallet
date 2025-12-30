@@ -24,7 +24,7 @@ import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import java.util.UUID // <--- IMPORTANTE: Necessário para gerar o ID String
+import java.util.UUID
 
 class AddDespesaActivity : AppCompatActivity() {
 
@@ -36,7 +36,6 @@ class AddDespesaActivity : AppCompatActivity() {
     private var currentPhotoPath: String? = null
     private var photoUri: Uri? = null
 
-    // Lógica da Câmara
     private val takePictureLauncher = registerForActivityResult(ActivityResultContracts.TakePicture()) { success ->
         if (success && photoUri != null) {
             ivPreview.setImageURI(photoUri)
@@ -49,7 +48,6 @@ class AddDespesaActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_add_despesa)
 
-        // Configuração de Margens (Edge-to-Edge)
         val mainContainer = findViewById<android.view.View>(R.id.mainContainer)
         if (mainContainer != null) {
             ViewCompat.setOnApplyWindowInsetsListener(mainContainer) { v, insets ->
@@ -60,7 +58,6 @@ class AddDespesaActivity : AppCompatActivity() {
             }
         }
 
-        // Ligar componentes
         etTitulo = findViewById(R.id.etTitulo)
         etValor = findViewById(R.id.etValor)
         etCategoria = findViewById(R.id.etCategoria)
@@ -109,37 +106,39 @@ class AddDespesaActivity : AppCompatActivity() {
         val valor = valorStr.toDoubleOrNull() ?: 0.0
         val dataHoje = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(Date())
 
-        // 1. GERAR ID STRING (UUID)
-        // Isto é fundamental agora que mudámos o ID de Int para String
-        val novoId = UUID.randomUUID().toString()
-
-        val novaDespesa = Despesa(
-            id = novoId,
-            titulo = titulo,
-            valor = valor,
-            categoria = categoria,
-            data = dataHoje,
-            fotoCaminho = currentPhotoPath,
-            isSynced = false
-        )
-
         lifecycleScope.launch {
             val db = AppDatabase.getDatabase(applicationContext)
 
-            // 2. Guardar na Base de Dados Local (Room)
-            db.despesaDao().insert(novaDespesa)
-
-            // 3. Atualizar o Saldo do Utilizador
+            // 1. IMPORTANTE: Buscar o Utilizador para saber o ID dele
             val user = db.utilizadorDao().getUtilizador()
-            if (user != null) {
-                val novoSaldo = user.saldo - valor
-                db.utilizadorDao().updateSaldo(user.id, novoSaldo)
+
+            if (user == null) {
+                Toast.makeText(this@AddDespesaActivity, "Erro: Inicie sessão novamente", Toast.LENGTH_SHORT).show()
+                return@launch
             }
 
-            // 4. Enviar para a API em background (Fire & Forget)
+            // 2. Criar a Despesa INCLUINDO O USER ID
+            val novaDespesa = Despesa(
+                id = UUID.randomUUID().toString(),
+                userId = user.id, // <--- AQUI ESTAVA O ERRO (Faltava esta linha)
+                titulo = titulo,
+                valor = valor,
+                categoria = categoria,
+                data = dataHoje,
+                fotoCaminho = currentPhotoPath,
+                isSynced = false
+            )
+
+            // 3. Guardar na BD Local
+            db.despesaDao().insert(novaDespesa)
+
+            // 4. Atualizar Saldo
+            val novoSaldo = user.saldo - valor
+            db.utilizadorDao().updateSaldo(user.id, novoSaldo)
+
+            // 5. Enviar para API
             enviarParaAPI(novaDespesa)
 
-            // 5. Fechar a atividade imediatamente para dar sensação de rapidez
             Toast.makeText(applicationContext, "Despesa guardada!", Toast.LENGTH_SHORT).show()
             finish()
         }
@@ -148,11 +147,10 @@ class AddDespesaActivity : AppCompatActivity() {
     private fun enviarParaAPI(despesa: Despesa) {
         RetrofitClient.instance.addDespesa(despesa).enqueue(object : Callback<Despesa> {
             override fun onResponse(call: Call<Despesa>, response: Response<Despesa>) {
-                // Sucesso: O servidor recebeu.
-                // Na próxima sincronização da MainActivity, os dados ficam todos alinhados.
+                // Sucesso
             }
             override fun onFailure(call: Call<Despesa>, t: Throwable) {
-                // Falha: Não faz mal, está guardado localmente com isSynced=false
+                // Falha
             }
         })
     }

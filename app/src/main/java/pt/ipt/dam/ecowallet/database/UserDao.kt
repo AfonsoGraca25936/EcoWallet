@@ -17,6 +17,7 @@ interface UserDao {
     @Query("SELECT * FROM utilizador LIMIT 1")
     suspend fun getUtilizador(): User?
 
+    // Correção: userId agora é String
     @Query("UPDATE utilizador SET saldo = :novoSaldo WHERE id = :userId")
-    suspend fun updateSaldo(userId: Int, novoSaldo: Double)
+    suspend fun updateSaldo(userId: String, novoSaldo: Double)
 }
