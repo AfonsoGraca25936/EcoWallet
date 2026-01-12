@@ -32,10 +32,6 @@ interface ApiService {
 
     @DELETE("despesas/{id}")
     fun deleteDespesa(@Path("id") id: String): Call<Void>
-
-    @PUT("auth/users/{id}")
-    fun updateSaldo(@Path("id") id: String, @Body body: Map<String, Double>): Call<Void>
-
     @PUT("users/{id}/saldo")
     fun updateSaldo(@Path("id") id: String, @Body body: SaldoRequest): Call<Void>
 }

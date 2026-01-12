@@ -2,13 +2,9 @@ package pt.ipt.dam.ecowallet
 
 import android.content.Intent
 import android.os.Bundle
-import android.text.InputType
 import android.view.Menu
 import android.view.MenuItem
 import android.view.View
-import android.view.ViewGroup
-import android.widget.EditText
-import android.widget.FrameLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
@@ -41,6 +37,7 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
+        // Configuração Edge-to-Edge
         val mainView = findViewById<View>(R.id.main)
         if (mainView != null) {
             ViewCompat.setOnApplyWindowInsetsListener(mainView) { v, insets ->
@@ -52,18 +49,21 @@ class MainActivity : AppCompatActivity() {
 
         setSupportActionBar(findViewById(R.id.toolbar))
 
+        // 1. Inicializar Base de Dados e Views
         database = AppDatabase.getDatabase(this)
         tvEmpty = findViewById(R.id.tvEmpty)
         recyclerView = findViewById(R.id.recyclerView)
         tvSaldo = findViewById(R.id.tvSaldo)
-        val btnEditSaldo = findViewById<View>(R.id.btnEditSaldo)
-        val fab = findViewById<FloatingActionButton>(R.id.fabAdd)
 
-        btnEditSaldo.setOnClickListener { mostrarDialogoEditarSaldo() }
+        // Botões Flutuantes (O Vermelho e o Verde)
+        val fabAdd = findViewById<FloatingActionButton>(R.id.fabAdd)
+        val fabReceita = findViewById<FloatingActionButton>(R.id.fabReceita)
 
+        // 2. Configurar a Lista (RecyclerView)
         adapter = DespesaAdapter(
             lista = emptyList(),
             onDespesaClick = { despesa ->
+                // Aqui poderias abrir a edição, por agora mostra só o nome
                 Toast.makeText(this, despesa.titulo, Toast.LENGTH_SHORT).show()
             },
             onDeleteClick = { despesa ->
@@ -74,19 +74,30 @@ class MainActivity : AppCompatActivity() {
         recyclerView.layoutManager = LinearLayoutManager(this)
         recyclerView.adapter = adapter
 
-        fab.setOnClickListener {
+        // 3. Ações dos Botões
+
+        // Botão Vermelho -> Adicionar Despesa (Gastar)
+        fabAdd.setOnClickListener {
             startActivity(Intent(this, AddDespesaActivity::class.java))
         }
 
+        // Botão Verde -> Adicionar Receita (Carregar Saldo)
+        fabReceita.setOnClickListener {
+            startActivity(Intent(this, AddReceitaActivity::class.java))
+        }
+
+        // 4. Verificar Sessão
         checkSessionAndLoad()
     }
 
     override fun onResume() {
         super.onResume()
+        // Sempre que voltamos a este ecrã, atualizamos tudo
         if (currentUser != null) {
             loadDespesasLocais()
             syncDespesasAPI()
-            // Atualizar o objeto currentUser da BD para ter o saldo mais recente
+
+            // Atualizar Saldo (Caso tenhamos vindo do ecrã de Receita ou Despesa)
             lifecycleScope.launch {
                 val user = database.utilizadorDao().getUtilizador()
                 if (user != null) {
@@ -101,9 +112,11 @@ class MainActivity : AppCompatActivity() {
         lifecycleScope.launch {
             val user = database.utilizadorDao().getUtilizador()
             if (user == null) {
+                // Se não há user, vai para o Login
                 startActivity(Intent(this@MainActivity, LoginActivity::class.java))
                 finish()
             } else {
+                // Se há user, carrega os dados
                 currentUser = user
                 updateSaldoUI(user.saldo)
                 loadDespesasLocais()
@@ -128,11 +141,14 @@ class MainActivity : AppCompatActivity() {
 
     private fun syncDespesasAPI() {
         val userId = currentUser?.id ?: return
+
+        // Pede ao servidor apenas as despesas deste utilizador
         RetrofitClient.instance.getDespesas(userId).enqueue(object : Callback<List<Despesa>> {
             override fun onResponse(call: Call<List<Despesa>>, response: Response<List<Despesa>>) {
                 if (response.isSuccessful) {
                     response.body()?.let { despesasRemotas ->
                         lifecycleScope.launch {
+                            // Atualiza a BD local com o que veio da nuvem
                             database.despesaDao().deleteAll()
                             despesasRemotas.forEach {
                                 it.isSynced = true
@@ -150,7 +166,7 @@ class MainActivity : AppCompatActivity() {
     private fun mostrarDialogoApagar(despesa: Despesa) {
         AlertDialog.Builder(this)
             .setTitle("Apagar Despesa")
-            .setMessage("Tem a certeza que deseja apagar '${despesa.titulo}'?")
+            .setMessage("Tem a certeza que deseja apagar '${despesa.titulo}'? O valor será devolvido ao saldo.")
             .setPositiveButton("Sim") { _, _ -> apagarDespesa(despesa) }
             .setNegativeButton("Não", null)
             .show()
@@ -158,33 +174,43 @@ class MainActivity : AppCompatActivity() {
 
     private fun apagarDespesa(despesa: Despesa) {
         lifecycleScope.launch {
-            // 1. Atualizar Saldo (Devolver valor)
+            // 1. ATUALIZAR SALDO (Devolver o dinheiro à carteira)
             currentUser?.let { user ->
                 val novoSaldo = user.saldo + despesa.valor
+
+                // A. Guardar no Telemóvel
                 database.utilizadorDao().updateSaldo(user.id, novoSaldo)
                 currentUser = user.copy(saldo = novoSaldo)
                 updateSaldoUI(novoSaldo)
-                
-                // Sincronizar saldo com API
-                RetrofitClient.instance.updateSaldo(user.id, mapOf("saldo" to novoSaldo)).enqueue(object : Callback<Void> {
-                    override fun onResponse(call: Call<Void>, response: Response<Void>) {}
-                    override fun onFailure(call: Call<Void>, t: Throwable) {}
+
+                // B. Guardar na Nuvem (USANDO O FORMATO CORRETO)
+                val request = pt.ipt.dam.ecowallet.model.SaldoRequest(saldo = novoSaldo)
+
+                RetrofitClient.instance.updateSaldo(user.id, request).enqueue(object : Callback<Void> {
+                    override fun onResponse(call: Call<Void>, response: Response<Void>) {
+                        // Sucesso silencioso
+                    }
+                    override fun onFailure(call: Call<Void>, t: Throwable) {
+                        // Falha silenciosa
+                    }
                 })
             }
 
-            // 2. Apagar Localmente
+            // 2. Apagar a Despesa Localmente
             database.despesaDao().delete(despesa)
             loadDespesasLocais()
 
-            // 3. Apagar no Servidor
+            // 3. Mandar Apagar a Despesa no Servidor
             if (despesa.id.isNotEmpty()) {
                 RetrofitClient.instance.deleteDespesa(despesa.id).enqueue(object : Callback<Void> {
                     override fun onResponse(call: Call<Void>, response: Response<Void>) {
                         if (response.isSuccessful) {
-                            Toast.makeText(applicationContext, "Apagado!", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(applicationContext, "Apagado e reembolsado!", Toast.LENGTH_SHORT).show()
                         }
                     }
-                    override fun onFailure(call: Call<Void>, t: Throwable) {}
+                    override fun onFailure(call: Call<Void>, t: Throwable) {
+                        Toast.makeText(applicationContext, "Sem net: Apagado só no telemóvel", Toast.LENGTH_SHORT).show()
+                    }
                 })
             }
         }
@@ -194,53 +220,7 @@ class MainActivity : AppCompatActivity() {
         tvSaldo.text = String.format("%.2f€", valor)
     }
 
-    private fun mostrarDialogoEditarSaldo() {
-        val input = EditText(this)
-        input.inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_DECIMAL
-        val container = FrameLayout(this)
-        val params = FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
-        params.leftMargin = 50; params.rightMargin = 50
-        input.layoutParams = params
-        container.addView(input)
-
-        AlertDialog.Builder(this)
-            .setTitle("Definir Saldo")
-            .setView(container)
-            .setPositiveButton("Guardar") { _, _ ->
-                val novoSaldo = input.text.toString().toDoubleOrNull()
-                if (novoSaldo != null && currentUser != null) guardarNovoSaldo(novoSaldo)
-            }
-            .setNegativeButton("Cancelar", null)
-            .show()
-    }
-
-    private fun guardarNovoSaldo(novoSaldo: Double) {
-        lifecycleScope.launch {
-            currentUser?.let { user ->
-                // 1. Atualizar Localmente (para ser rápido)
-                database.utilizadorDao().updateSaldo(user.id, novoSaldo)
-                currentUser = user.copy(saldo = novoSaldo)
-                updateSaldoUI(novoSaldo)
-
-                // 2. Avisar o Servidor (O SEGREDO ESTÁ AQUI)
-                val request = pt.ipt.dam.ecowallet.model.SaldoRequest(saldo = novoSaldo)
-
-                RetrofitClient.instance.updateSaldo(user.id, request).enqueue(object : Callback<Void> {
-                    override fun onResponse(call: Call<Void>, response: Response<Void>) {
-                        if (response.isSuccessful) {
-                            Toast.makeText(applicationContext, "Saldo guardado na nuvem!", Toast.LENGTH_SHORT).show()
-                        } else {
-                            Toast.makeText(applicationContext, "Erro a guardar online", Toast.LENGTH_SHORT).show()
-                        }
-                    }
-                    override fun onFailure(call: Call<Void>, t: Throwable) {
-                        Toast.makeText(applicationContext, "Sem net: Saldo guardado só no telemóvel", Toast.LENGTH_LONG).show()
-                    }
-                })
-            }
-        }
-    }
-
+    // Menus (Logout, Refresh, About)
     override fun onCreateOptionsMenu(menu: Menu?): Boolean {
         menuInflater.inflate(R.menu.menu_main, menu)
         return true
@@ -259,6 +239,7 @@ class MainActivity : AppCompatActivity() {
             }
             R.id.action_refresh -> {
                 syncDespesasAPI()
+                Toast.makeText(this, "A atualizar...", Toast.LENGTH_SHORT).show()
                 true
             }
             R.id.action_about -> {

@@ -118,7 +118,8 @@ class AddDespesaActivity : AppCompatActivity() {
                 db.utilizadorDao().updateSaldo(user.id, novoSaldo)
 
                 // 3. Sincronizar Saldo com a API
-                RetrofitClient.instance.updateSaldo(user.id, mapOf("saldo" to novoSaldo)).enqueue(object : Callback<Void> {
+                val request = pt.ipt.dam.ecowallet.model.SaldoRequest(saldo = novoSaldo)
+                RetrofitClient.instance.updateSaldo(user.id, request).enqueue(object : Callback<Void> {
                     override fun onResponse(call: Call<Void>, response: Response<Void>) {}
                     override fun onFailure(call: Call<Void>, t: Throwable) {}
                 })
