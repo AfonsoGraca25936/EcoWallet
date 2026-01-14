@@ -7,7 +7,7 @@ import androidx.room.RoomDatabase
 import pt.ipt.dam.ecowallet.model.Despesa
 import pt.ipt.dam.ecowallet.model.User
 
-@Database(entities = [User::class, Despesa::class], version = 4, exportSchema = false)
+@Database(entities = [User::class, Despesa::class], version = 5, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
 
     abstract fun utilizadorDao(): UserDao

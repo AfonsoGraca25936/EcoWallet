@@ -106,6 +106,8 @@ class MainActivity : AppCompatActivity() {
         }
 
         checkSessionAndLoad()
+        window.statusBarColor = Color.parseColor("#2E7D32")
+
     }
 
     private fun atualizarGrafico(lista: List<Despesa>, titulo: String) {// Calcular o total da lista filtrada
