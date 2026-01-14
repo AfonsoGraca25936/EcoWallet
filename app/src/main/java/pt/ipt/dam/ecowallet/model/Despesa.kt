@@ -8,14 +8,15 @@ import com.google.gson.annotations.SerializedName
 data class Despesa(
     @PrimaryKey(autoGenerate = false)
     @SerializedName("_id")
-    var id: String = "",
+    var id: String = "",          // String
 
-    val userId: String, // <--- NOVO CAMPO: Diz de quem é a despesa
+    val userId: String,           // String (Para ligar ao User)
 
     val titulo: String,
     val valor: Double,
     val categoria: String,
     val data: String,
     val fotoCaminho: String?,
-    var isSynced: Boolean = false
+
+    var isSynced: Boolean = false // Para saberes se já foi enviada para o servidor
 )

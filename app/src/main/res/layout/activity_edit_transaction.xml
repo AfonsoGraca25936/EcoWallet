@@ -16,10 +16,10 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Nova Receita"
+            android:text="Editar Transação"
             android:textSize="24sp"
             android:textStyle="bold"
-            android:textColor="@color/income_green"
+            android:textColor="@color/eco_primary"
             android:layout_marginBottom="24dp"/>
 
         <com.google.android.material.textfield.TextInputLayout
@@ -27,9 +27,7 @@
             android:layout_height="wrap_content"
             android:layout_marginBottom="16dp"
             app:boxBackgroundColor="@color/eco_background"
-            app:boxCornerRadiusTopStart="8dp"
-            app:boxCornerRadiusTopEnd="8dp"
-            android:hint="Descrição (ex: Ordenado)">
+            android:hint="Descrição">
             <com.google.android.material.textfield.TextInputEditText
                 android:id="@+id/etTitulo"
                 android:inputType="textCapSentences"
@@ -55,7 +53,7 @@
             android:layout_height="wrap_content"
             android:layout_marginBottom="24dp"
             app:boxBackgroundColor="@color/eco_background"
-            android:hint="Categoria (ex: Trabalho, Vendas)">
+            android:hint="Categoria">
             <com.google.android.material.textfield.TextInputEditText
                 android:id="@+id/etCategoria"
                 android:inputType="textCapWords"
@@ -64,14 +62,14 @@
         </com.google.android.material.textfield.TextInputLayout>
 
         <Button
-            android:id="@+id/btnGuardar"
+            android:id="@+id/btnUpdate"
             android:layout_width="match_parent"
             android:layout_height="60dp"
-            android:text="Confirmar Depósito"
+            android:text="Guardar Alterações"
             android:textSize="16sp"
             android:textStyle="bold"
             app:cornerRadius="12dp"
-            android:backgroundTint="@color/income_green"/>
+            android:backgroundTint="@color/eco_primary"/>
 
     </LinearLayout>
 </ScrollView>

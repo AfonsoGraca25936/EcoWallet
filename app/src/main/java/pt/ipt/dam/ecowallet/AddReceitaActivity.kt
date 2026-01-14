@@ -3,79 +3,82 @@ package pt.ipt.dam.ecowallet
 import android.os.Bundle
 import android.view.View
 import android.widget.Button
-import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.textfield.TextInputEditText
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import pt.ipt.dam.ecowallet.api.RetrofitClient
 import pt.ipt.dam.ecowallet.database.AppDatabase
+import pt.ipt.dam.ecowallet.model.Despesa
 import pt.ipt.dam.ecowallet.model.SaldoRequest
-import retrofit2.Call
-import retrofit2.Callback
-import retrofit2.Response
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import java.util.UUID
 
 class AddReceitaActivity : AppCompatActivity() {
 
     private lateinit var etValor: TextInputEditText
     private lateinit var etTitulo: TextInputEditText
+    private lateinit var etCategoria: TextInputEditText
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
-        // MUDANÇA 1: Usar o novo layout
         setContentView(R.layout.activity_add_receita)
 
-        // Configuração das margens (Edge-to-edge)
-        val mainContainer = findViewById<View>(R.id.mainContainer)
-        if (mainContainer != null) {
-            ViewCompat.setOnApplyWindowInsetsListener(mainContainer) { v, insets ->
-                val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-                v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
-                insets
-            }
-        }
-
-        // MUDANÇA 2: Ligar os IDs novos
         etValor = findViewById(R.id.etValor)
         etTitulo = findViewById(R.id.etTitulo)
+        etCategoria = findViewById(R.id.etCategoria)
 
-        // Botão Guardar
-        val btnGuardar = findViewById<Button>(R.id.btnGuardar)
-        btnGuardar.setOnClickListener { adicionarDinheiro() }
+        findViewById<Button>(R.id.btnGuardar).setOnClickListener { adicionarDinheiro() }
     }
 
     private fun adicionarDinheiro() {
         val valorStr = etValor.text.toString()
-        if (valorStr.isEmpty()) {
-            Toast.makeText(this, "Insira um valor", Toast.LENGTH_SHORT).show()
-            return
-        }
+        if (valorStr.isEmpty()) return
         val valor = valorStr.toDoubleOrNull() ?: 0.0
 
-        lifecycleScope.launch {
+        val titulo = etTitulo.text.toString().ifEmpty { "Depósito" }
+        val categoria = etCategoria.text.toString().ifEmpty { "Receita" }
+
+        lifecycleScope.launch(Dispatchers.IO) {
             val db = AppDatabase.getDatabase(applicationContext)
             val user = db.utilizadorDao().getUtilizador()
 
             if (user != null) {
-                // SOMA ao saldo
                 val novoSaldo = user.saldo + valor
+                val dataHoje = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(Date())
 
-                // 1. Atualizar Local
-                db.utilizadorDao().updateSaldo(user.id, novoSaldo)
+                val novaReceita = Despesa(
+                    id = UUID.randomUUID().toString(), // ID Único
+                    titulo = titulo,
+                    valor = valor,
+                    categoria = categoria,
+                    data = dataHoje,
+                    fotoCaminho = null,
+                    userId = user.id
+                )
 
-                // 2. Atualizar na Cloud
-                val request = SaldoRequest(saldo = novoSaldo)
-                RetrofitClient.instance.updateSaldo(user.id, request).enqueue(object : Callback<Void> {
-                    override fun onResponse(call: Call<Void>, response: Response<Void>) {}
-                    override fun onFailure(call: Call<Void>, t: Throwable) {}
-                })
+                try {
+                    // Atualizar na API
+                    RetrofitClient.instance.updateSaldo(user.id, SaldoRequest(novoSaldo)).execute()
+                    val res = RetrofitClient.instance.addDespesa(novaReceita).execute()
 
-                Toast.makeText(applicationContext, "Saldo adicionado: +$valor€", Toast.LENGTH_SHORT).show()
-                finish()
+                    if (res.isSuccessful) {
+                        db.utilizadorDao().updateSaldo(user.id, novoSaldo)
+                        db.despesaDao().insert(novaReceita.apply { isSynced = true })
+                        withContext(Dispatchers.Main) { finish() }
+                    }
+                } catch (e: Exception) {
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(applicationContext, "Erro: ${e.message}", Toast.LENGTH_SHORT).show()
+                    }
+                }
             }
         }
     }

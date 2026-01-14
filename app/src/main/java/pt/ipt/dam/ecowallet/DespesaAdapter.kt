@@ -1,5 +1,6 @@
 package pt.ipt.dam.ecowallet
 
+import android.graphics.Color
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -16,15 +17,12 @@ class DespesaAdapter(
     private val onDeleteClick: (Despesa) -> Unit
 ) : RecyclerView.Adapter<DespesaAdapter.DespesaViewHolder>() {
 
-    // --- A CORREÇÃO ESTÁ AQUI DENTRO ---
     class DespesaViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
-        val titulo: TextView = itemView.findViewById(R.id.tvTitulo)
-        val valor: TextView = itemView.findViewById(R.id.tvValor)
-        val categoria: TextView = itemView.findViewById(R.id.tvCategoria)
-        val data: TextView = itemView.findViewById(R.id.tvData)
-        val imagem: ImageView = itemView.findViewById(R.id.ivDespesaThumb)
-
-        // FALTAVA ESTA LINHA:
+        val tvTitulo: TextView = itemView.findViewById(R.id.tvTitulo)
+        val tvValor: TextView = itemView.findViewById(R.id.tvValor)
+        val tvCategoria: TextView = itemView.findViewById(R.id.tvCategoria)
+        val tvData: TextView = itemView.findViewById(R.id.tvData)
+        val ivDespesaThumb: ImageView = itemView.findViewById(R.id.ivDespesaThumb)
         val btnDelete: ImageView = itemView.findViewById(R.id.btnDelete)
     }
 
@@ -35,29 +33,32 @@ class DespesaAdapter(
 
     override fun onBindViewHolder(holder: DespesaViewHolder, position: Int) {
         val despesa = lista[position]
+        holder.tvTitulo.text = despesa.titulo
+        holder.tvCategoria.text = despesa.categoria
+        holder.tvData.text = despesa.data
 
-        // Preencher dados
-        holder.titulo.text = despesa.titulo
-        holder.valor.text = String.format("%.2f€", despesa.valor)
-        holder.categoria.text = despesa.categoria
-        holder.data.text = despesa.data
-
-        // Carregar Imagem
-        if (!despesa.fotoCaminho.isNullOrEmpty()) {
-            val imgFile = File(despesa.fotoCaminho)
-            if (imgFile.exists()) {
-                holder.imagem.load(imgFile)
-            } else {
-                holder.imagem.load(R.mipmap.ic_launcher)
-            }
+        // Lógica de Cores e Sinais
+        if (despesa.valor >= 0) {
+            holder.tvValor.text = String.format("+ %.2f€", despesa.valor)
+            holder.tvValor.setTextColor(Color.parseColor("#4CAF50")) // Verde
         } else {
-            holder.imagem.load(R.mipmap.ic_launcher)
+            holder.tvValor.text = String.format("%.2f€", despesa.valor)
+            holder.tvValor.setTextColor(Color.parseColor("#F44336")) // Vermelho
         }
 
-        // Clique no Item (Detalhes)
-        holder.itemView.setOnClickListener { onDespesaClick(despesa) }
+        // Carregamento de Imagem
+        if (!despesa.fotoCaminho.isNullOrEmpty()) {
+            val file = File(despesa.fotoCaminho)
+            if (file.exists()) {
+                holder.ivDespesaThumb.load(file)
+            } else {
+                holder.ivDespesaThumb.load(R.mipmap.ic_launcher)
+            }
+        } else {
+            holder.ivDespesaThumb.load(R.mipmap.ic_launcher)
+        }
 
-        // Clique no Lixo (Apagar) - AGORA VAI FUNCIONAR
+        holder.itemView.setOnClickListener { onDespesaClick(despesa) }
         holder.btnDelete.setOnClickListener { onDeleteClick(despesa) }
     }
 

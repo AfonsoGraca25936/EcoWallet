@@ -1,10 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/mainContainer"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:fitsSystemWindows="true"
-    android:padding="16dp">
+    android:padding="16dp"
+    android:background="@color/white">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -12,17 +14,23 @@
         android:orientation="vertical">
 
         <TextView
+            android:id="@+id/tvTituloEcra"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="Nova Despesa"
             android:textSize="24sp"
             android:textStyle="bold"
-            android:layout_marginBottom="16dp"/>
+            android:textColor="@color/expense_red"
+            android:layout_marginBottom="24dp"/>
 
         <com.google.android.material.textfield.TextInputLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:hint="Título">
+            android:layout_marginBottom="16dp"
+            app:boxBackgroundColor="@color/eco_background"
+            app:boxCornerRadiusTopStart="8dp"
+            app:boxCornerRadiusTopEnd="8dp"
+            android:hint="O que comprou?">
             <com.google.android.material.textfield.TextInputEditText
                 android:id="@+id/etTitulo"
                 android:layout_width="match_parent"
@@ -32,7 +40,8 @@
         <com.google.android.material.textfield.TextInputLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="10dp"
+            android:layout_marginBottom="16dp"
+            app:boxBackgroundColor="@color/eco_background"
             android:hint="Valor (€)">
             <com.google.android.material.textfield.TextInputEditText
                 android:id="@+id/etValor"
@@ -44,7 +53,8 @@
         <com.google.android.material.textfield.TextInputLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="10dp"
+            android:layout_marginBottom="24dp"
+            app:boxBackgroundColor="@color/eco_background"
             android:hint="Categoria">
             <com.google.android.material.textfield.TextInputEditText
                 android:id="@+id/etCategoria"
@@ -55,26 +65,29 @@
         <Button
             android:id="@+id/btnFoto"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:text="Tirar Foto da Fatura"
-            android:drawableLeft="@android:drawable/ic_menu_camera"/>
+            android:layout_height="56dp"
+            android:text="Anexar Foto da Fatura"
+            android:backgroundTint="@color/text_secondary"
+            android:textColor="@color/white"
+            android:layout_marginBottom="16dp"/>
 
         <ImageView
             android:id="@+id/ivPreview"
             android:layout_width="match_parent"
-            android:layout_height="200dp"
-            android:layout_marginTop="10dp"
+            android:layout_height="150dp"
+            android:layout_marginBottom="16dp"
             android:scaleType="centerCrop"
-            android:background="#E0E0E0"
-            android:contentDescription="Preview da foto"/>
+            android:visibility="gone"
+            android:background="#EEEEEE"/>
 
         <Button
             android:id="@+id/btnGuardar"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="24dp"
-            android:text="Guardar Despesa"
-            android:backgroundTint="@android:color/holo_green_dark"/>
+            android:layout_height="60dp"
+            android:text="Registar Despesa"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            app:cornerRadius="12dp"
+            android:backgroundTint="@color/expense_red"/>
     </LinearLayout>
 </ScrollView>

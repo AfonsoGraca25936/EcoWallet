@@ -6,12 +6,12 @@ plugins {
 
 android {
     namespace = "pt.ipt.dam.ecowallet"
-    compileSdk = 36
+    compileSdk = 35
 
     defaultConfig {
         applicationId = "pt.ipt.dam.ecowallet"
         minSdk = 24
-        targetSdk = 36
+        targetSdk = 35
         versionCode = 1
         versionName = "1.0"
 
@@ -66,4 +66,6 @@ dependencies {
 
     implementation("androidx.biometric:biometric:1.2.0-alpha05")
     implementation("androidx.security:security-crypto:1.1.0-alpha06") // biometrica
+
+    implementation("com.github.PhilJay:MPAndroidChart:v3.1.0")
 }

@@ -38,13 +38,11 @@ class LoginActivity : AppCompatActivity() {
         if (mainView != null) {
             ViewCompat.setOnApplyWindowInsetsListener(mainView) { v, insets ->
                 val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-                // Padding base de 24dp + altura das barras
                 val paddingBase = (24 * resources.displayMetrics.density).toInt()
                 v.setPadding(paddingBase, systemBars.top + paddingBase, paddingBase, systemBars.bottom + paddingBase)
                 insets
             }
         }
-        // -------------------------------------------
 
         database = AppDatabase.getDatabase(this)
         checkBiometricAvailability()
@@ -78,20 +76,30 @@ class LoginActivity : AppCompatActivity() {
             override fun onResponse(call: Call<LoginResponse>, response: Response<LoginResponse>) {
                 if (response.isSuccessful && response.body()?.error == false) {
                     val loginResponse = response.body()!!
-                    lifecycleScope.launch {
-                        loginResponse.user?.let { u ->
-                            saveCredentialsEncrypted(user, pass)
-                            database.utilizadorDao().insert(u)
-                            withContext(Dispatchers.Main) {
-                                Toast.makeText(applicationContext, "Login com sucesso!", Toast.LENGTH_SHORT).show()
-                                goToMain()
+                    loginResponse.user?.let { u ->
+                        // Corrigido: Usar Dispatchers.IO para operações de BD e try-catch para evitar crash
+                        lifecycleScope.launch(Dispatchers.IO) {
+                            try {
+                                saveCredentialsEncrypted(user, pass)
+                                database.utilizadorDao().insert(u)
+
+                                withContext(Dispatchers.Main) {
+                                    Toast.makeText(applicationContext, "Login com sucesso!", Toast.LENGTH_SHORT).show()
+                                    goToMain()
+                                }
+                            } catch (e: Exception) {
+                                withContext(Dispatchers.Main) {
+                                    Toast.makeText(applicationContext, "Erro ao guardar dados: ${e.message}", Toast.LENGTH_LONG).show()
+                                }
                             }
                         }
                     }
                 } else {
-                    Toast.makeText(applicationContext, "Erro: ${response.body()?.message}", Toast.LENGTH_LONG).show()
+                    val errorMsg = response.body()?.message ?: "Credenciais inválidas"
+                    Toast.makeText(applicationContext, "Erro: $errorMsg", Toast.LENGTH_LONG).show()
                 }
             }
+
             override fun onFailure(call: Call<LoginResponse>, t: Throwable) {
                 Toast.makeText(applicationContext, "Falha na rede: ${t.message}", Toast.LENGTH_SHORT).show()
             }

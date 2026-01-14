@@ -1,10 +1,11 @@
 package pt.ipt.dam.ecowallet
 
 import android.content.Intent
+import android.graphics.Color
 import android.os.Bundle
-import android.view.Menu
-import android.view.MenuItem
 import android.view.View
+import android.widget.Button
+import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
@@ -14,15 +15,23 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.github.mikephil.charting.charts.PieChart
+import com.github.mikephil.charting.data.PieData
+import com.github.mikephil.charting.data.PieDataSet
+import com.github.mikephil.charting.data.PieEntry
+import com.github.mikephil.charting.formatter.PercentFormatter
+import com.github.mikephil.charting.utils.ColorTemplate
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 import kotlinx.coroutines.launch
 import pt.ipt.dam.ecowallet.api.RetrofitClient
 import pt.ipt.dam.ecowallet.database.AppDatabase
 import pt.ipt.dam.ecowallet.model.Despesa
+import pt.ipt.dam.ecowallet.model.SaldoRequest
 import pt.ipt.dam.ecowallet.model.User
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
+import kotlin.math.abs
 
 class MainActivity : AppCompatActivity() {
 
@@ -31,124 +40,129 @@ class MainActivity : AppCompatActivity() {
     private lateinit var recyclerView: RecyclerView
     private lateinit var tvEmpty: TextView
     private lateinit var tvSaldo: TextView
+    private lateinit var pieChart: PieChart
     private var currentUser: User? = null
+    private var listaCompleta: List<Despesa> = emptyList()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        // Configuração Edge-to-Edge
-        val mainView = findViewById<View>(R.id.main)
-        if (mainView != null) {
-            ViewCompat.setOnApplyWindowInsetsListener(mainView) { v, insets ->
-                val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-                v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
-                insets
-            }
-        }
-
-        setSupportActionBar(findViewById(R.id.toolbar))
-
-        // 1. Inicializar Base de Dados e Views
         database = AppDatabase.getDatabase(this)
         tvEmpty = findViewById(R.id.tvEmpty)
         recyclerView = findViewById(R.id.recyclerView)
         tvSaldo = findViewById(R.id.tvSaldo)
+        pieChart = findViewById(R.id.pieChart)
 
-        // Botões Flutuantes (O Vermelho e o Verde)
+        // Configuração inicial do Gráfico para Percentagens
+        pieChart.setUsePercentValues(true)
+        pieChart.description.isEnabled = false
+        pieChart.legend.isEnabled = false
+        pieChart.setEntryLabelColor(Color.BLACK)
+
+        val btnLogout = findViewById<ImageView>(R.id.btnLogout)
+        val btnAbout = findViewById<ImageView>(R.id.btnAbout)
+        val btnShowDespesa = findViewById<Button>(R.id.btnShowDespesa)
+        val btnShowReceita = findViewById<Button>(R.id.btnShowReceita)
         val fabAdd = findViewById<FloatingActionButton>(R.id.fabAdd)
         val fabReceita = findViewById<FloatingActionButton>(R.id.fabReceita)
 
-        // 2. Configurar a Lista (RecyclerView)
+        val mainView = findViewById<View>(R.id.main)
+        ViewCompat.setOnApplyWindowInsetsListener(mainView) { v, insets ->
+            val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            v.setPadding(systemBars.left, 0, systemBars.right, systemBars.bottom)
+            insets
+        }
+
         adapter = DespesaAdapter(
             lista = emptyList(),
             onDespesaClick = { despesa ->
-                // Aqui poderias abrir a edição, por agora mostra só o nome
-                Toast.makeText(this, despesa.titulo, Toast.LENGTH_SHORT).show()
+                val intent = Intent(this, EditTransactionActivity::class.java).apply {
+                    putExtra("ID", despesa.id)
+                    putExtra("USER_ID", despesa.userId)
+                    putExtra("TITULO", despesa.titulo)
+                    putExtra("VALOR", despesa.valor)
+                    putExtra("CATEGORIA", despesa.categoria)
+                    putExtra("DATA", despesa.data)
+                    putExtra("FOTO", despesa.fotoCaminho)
+                }
+                startActivity(intent)
             },
-            onDeleteClick = { despesa ->
-                mostrarDialogoApagar(despesa)
-            }
+            onDeleteClick = { despesa -> mostrarDialogoApagar(despesa) }
         )
-
         recyclerView.layoutManager = LinearLayoutManager(this)
         recyclerView.adapter = adapter
 
-        // 3. Ações dos Botões
+        fabAdd.setOnClickListener { startActivity(Intent(this, AddDespesaActivity::class.java)) }
+        fabReceita.setOnClickListener { startActivity(Intent(this, AddReceitaActivity::class.java)) }
+        btnLogout.setOnClickListener { realizarLogout() }
+        btnAbout.setOnClickListener { startActivity(Intent(this, AboutActivity::class.java)) }
 
-        // Botão Vermelho -> Adicionar Despesa (Gastar)
-        fabAdd.setOnClickListener {
-            startActivity(Intent(this, AddDespesaActivity::class.java))
+        btnShowDespesa.setOnClickListener {
+            atualizarGrafico(listaCompleta.filter { it.valor < 0 }, "Gastos (%)")
+        }
+        btnShowReceita.setOnClickListener {
+            atualizarGrafico(listaCompleta.filter { it.valor > 0 }, "Entradas (%)")
         }
 
-        // Botão Verde -> Adicionar Receita (Carregar Saldo)
-        fabReceita.setOnClickListener {
-            startActivity(Intent(this, AddReceitaActivity::class.java))
-        }
-
-        // 4. Verificar Sessão
         checkSessionAndLoad()
     }
 
-    override fun onResume() {
-        super.onResume()
-        // Sempre que voltamos a este ecrã, atualizamos tudo
-        if (currentUser != null) {
-            loadDespesasLocais()
-            syncDespesasAPI()
+    private fun atualizarGrafico(lista: List<Despesa>, titulo: String) {// Calcular o total da lista filtrada
+        val totalSoma = lista.sumOf { abs(it.valor) }
 
-            // Atualizar Saldo (Caso tenhamos vindo do ecrã de Receita ou Despesa)
-            lifecycleScope.launch {
-                val user = database.utilizadorDao().getUtilizador()
-                if (user != null) {
-                    currentUser = user
-                    updateSaldoUI(user.saldo)
-                }
-            }
-        }
-    }
+        val categoriasMap = lista.groupBy { it.categoria }
+            .mapValues { entry -> entry.value.sumOf { abs(it.valor) } }
 
-    private fun checkSessionAndLoad() {
-        lifecycleScope.launch {
-            val user = database.utilizadorDao().getUtilizador()
-            if (user == null) {
-                // Se não há user, vai para o Login
-                startActivity(Intent(this@MainActivity, LoginActivity::class.java))
-                finish()
-            } else {
-                // Se há user, carrega os dados
-                currentUser = user
-                updateSaldoUI(user.saldo)
-                loadDespesasLocais()
-                syncDespesasAPI()
-            }
+        if (categoriasMap.isEmpty()) {
+            pieChart.clear()
+            pieChart.centerText = "Sem dados"
+            return
         }
+
+        val entries = categoriasMap.map { PieEntry(it.value.toFloat(), it.key) }
+        val dataSet = PieDataSet(entries, "")
+        dataSet.colors = ColorTemplate.MATERIAL_COLORS.toList()
+        dataSet.valueTextSize = 12f
+        dataSet.valueTextColor = Color.BLACK
+
+        val data = PieData(dataSet)
+        data.setValueFormatter(PercentFormatter(pieChart))
+
+        pieChart.data = data
+
+        // Configurar o texto central com o Título + Valor Total
+        pieChart.centerText = "$titulo\n${String.format("%.2f€", totalSoma)}"
+        pieChart.setCenterTextSize(16f) // Podes ajustar o tamanho se quiseres
+
+        pieChart.animateY(800)
+        pieChart.invalidate()
     }
 
     private fun loadDespesasLocais() {
         lifecycleScope.launch {
-            val lista = database.despesaDao().getAll()
-            if (lista.isEmpty()) {
+            listaCompleta = database.despesaDao().getAll()
+            if (listaCompleta.isEmpty()) {
                 tvEmpty.visibility = View.VISIBLE
                 recyclerView.visibility = View.GONE
+                pieChart.visibility = View.GONE
             } else {
                 tvEmpty.visibility = View.GONE
                 recyclerView.visibility = View.VISIBLE
-                adapter.updateList(lista)
+                pieChart.visibility = View.VISIBLE
+                adapter.updateList(listaCompleta)
+                atualizarGrafico(listaCompleta.filter { it.valor < 0 }, "Gastos (%)")
             }
         }
     }
 
     private fun syncDespesasAPI() {
         val userId = currentUser?.id ?: return
-
-        // Pede ao servidor apenas as despesas deste utilizador
         RetrofitClient.instance.getDespesas(userId).enqueue(object : Callback<List<Despesa>> {
             override fun onResponse(call: Call<List<Despesa>>, response: Response<List<Despesa>>) {
                 if (response.isSuccessful) {
                     response.body()?.let { despesasRemotas ->
                         lifecycleScope.launch {
-                            // Atualiza a BD local com o que veio da nuvem
                             database.despesaDao().deleteAll()
                             despesasRemotas.forEach {
                                 it.isSynced = true
@@ -163,10 +177,34 @@ class MainActivity : AppCompatActivity() {
         })
     }
 
+    private fun checkSessionAndLoad() {
+        lifecycleScope.launch {
+            val user = database.utilizadorDao().getUtilizador()
+            if (user == null) {
+                startActivity(Intent(this@MainActivity, LoginActivity::class.java))
+                finish()
+            } else {
+                currentUser = user
+                updateSaldoUI(user.saldo)
+                loadDespesasLocais()
+                syncDespesasAPI()
+            }
+        }
+    }
+
+    private fun realizarLogout() {
+        lifecycleScope.launch {
+            database.utilizadorDao().logout()
+            database.despesaDao().deleteAll()
+            startActivity(Intent(this@MainActivity, LoginActivity::class.java))
+            finish()
+        }
+    }
+
     private fun mostrarDialogoApagar(despesa: Despesa) {
         AlertDialog.Builder(this)
-            .setTitle("Apagar Despesa")
-            .setMessage("Tem a certeza que deseja apagar '${despesa.titulo}'? O valor será devolvido ao saldo.")
+            .setTitle("Apagar")
+            .setMessage("Deseja apagar '${despesa.titulo}'?")
             .setPositiveButton("Sim") { _, _ -> apagarDespesa(despesa) }
             .setNegativeButton("Não", null)
             .show()
@@ -174,43 +212,22 @@ class MainActivity : AppCompatActivity() {
 
     private fun apagarDespesa(despesa: Despesa) {
         lifecycleScope.launch {
-            // 1. ATUALIZAR SALDO (Devolver o dinheiro à carteira)
             currentUser?.let { user ->
-                val novoSaldo = user.saldo + despesa.valor
-
-                // A. Guardar no Telemóvel
+                val novoSaldo = user.saldo - despesa.valor
                 database.utilizadorDao().updateSaldo(user.id, novoSaldo)
                 currentUser = user.copy(saldo = novoSaldo)
                 updateSaldoUI(novoSaldo)
-
-                // B. Guardar na Nuvem (USANDO O FORMATO CORRETO)
-                val request = pt.ipt.dam.ecowallet.model.SaldoRequest(saldo = novoSaldo)
-
-                RetrofitClient.instance.updateSaldo(user.id, request).enqueue(object : Callback<Void> {
-                    override fun onResponse(call: Call<Void>, response: Response<Void>) {
-                        // Sucesso silencioso
-                    }
-                    override fun onFailure(call: Call<Void>, t: Throwable) {
-                        // Falha silenciosa
-                    }
+                RetrofitClient.instance.updateSaldo(user.id, SaldoRequest(novoSaldo)).enqueue(object : Callback<Void> {
+                    override fun onResponse(call: Call<Void>, response: Response<Void>) {}
+                    override fun onFailure(call: Call<Void>, t: Throwable) {}
                 })
             }
-
-            // 2. Apagar a Despesa Localmente
             database.despesaDao().delete(despesa)
             loadDespesasLocais()
-
-            // 3. Mandar Apagar a Despesa no Servidor
             if (despesa.id.isNotEmpty()) {
                 RetrofitClient.instance.deleteDespesa(despesa.id).enqueue(object : Callback<Void> {
-                    override fun onResponse(call: Call<Void>, response: Response<Void>) {
-                        if (response.isSuccessful) {
-                            Toast.makeText(applicationContext, "Apagado e reembolsado!", Toast.LENGTH_SHORT).show()
-                        }
-                    }
-                    override fun onFailure(call: Call<Void>, t: Throwable) {
-                        Toast.makeText(applicationContext, "Sem net: Apagado só no telemóvel", Toast.LENGTH_SHORT).show()
-                    }
+                    override fun onResponse(call: Call<Void>, response: Response<Void>) {}
+                    override fun onFailure(call: Call<Void>, t: Throwable) {}
                 })
             }
         }
@@ -220,33 +237,22 @@ class MainActivity : AppCompatActivity() {
         tvSaldo.text = String.format("%.2f€", valor)
     }
 
-    // Menus (Logout, Refresh, About)
-    override fun onCreateOptionsMenu(menu: Menu?): Boolean {
-        menuInflater.inflate(R.menu.menu_main, menu)
-        return true
+    override fun onResume() {
+        super.onResume()
+        if (currentUser != null) {
+            loadDespesasLocais()
+            syncDespesasAPI()
+            atualizarSaldoUser()
+        }
     }
 
-    override fun onOptionsItemSelected(item: MenuItem): Boolean {
-        return when (item.itemId) {
-            R.id.action_logout -> {
-                lifecycleScope.launch {
-                    database.utilizadorDao().logout()
-                    database.despesaDao().deleteAll()
-                    startActivity(Intent(this@MainActivity, LoginActivity::class.java))
-                    finish()
-                }
-                true
+    private fun atualizarSaldoUser() {
+        lifecycleScope.launch {
+            val user = database.utilizadorDao().getUtilizador()
+            user?.let {
+                currentUser = it
+                updateSaldoUI(it.saldo)
             }
-            R.id.action_refresh -> {
-                syncDespesasAPI()
-                Toast.makeText(this, "A atualizar...", Toast.LENGTH_SHORT).show()
-                true
-            }
-            R.id.action_about -> {
-                startActivity(Intent(this, AboutActivity::class.java))
-                true
-            }
-            else -> super.onOptionsItemSelected(item)
         }
     }
 }

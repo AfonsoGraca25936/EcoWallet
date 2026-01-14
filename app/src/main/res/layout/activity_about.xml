@@ -2,46 +2,35 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:gravity="center"
     android:orientation="vertical"
-    android:padding="24dp">
-
-    <ImageView
-        android:layout_width="150dp"
-        android:layout_height="150dp"
-        android:src="@mipmap/ic_launcher_round"
-        android:layout_marginBottom="24dp"/>
+    android:gravity="center"
+    android:padding="24dp"
+    android:background="@color/white">
 
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="EcoWallet"
         android:textSize="32sp"
-        android:textStyle="bold" />
-
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="16dp"
-        android:text="Licenciatura em Eng. Informática\n2025/2026"
-        android:gravity="center"
-        android:textSize="18sp" />
-
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="24dp"
-        android:text="Autor:\nAfonso Graça - Nº 25936\nJoão Passarinho - Nº 25945"
-        android:gravity="center"
         android:textStyle="bold"
-        android:textSize="16sp" />
+        android:textColor="@color/eco_primary"/>
 
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="24dp"
-        android:text="Bibliotecas usadas:\n- Retrofit (API)\n- Room (Base de Dados)\n- Coil (Imagens)"
-        android:gravity="center"
-        android:textSize="14sp" />
+        android:text="Versão 1.0"
+        android:layout_marginBottom="24dp"/>
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Desenvolvido pelos alunos:\n   Afonso Graça nº25936\nJoão Passarinho nº25945"
+        android:textSize="18sp"/>
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Projeto de DAM - IPT"
+        android:layout_marginTop="8dp"/>
 
 </LinearLayout>

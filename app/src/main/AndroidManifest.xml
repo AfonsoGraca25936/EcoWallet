@@ -28,7 +28,7 @@
         <activity android:name=".MainActivity" />
         <activity android:name=".AddDespesaActivity" />
         <activity android:name=".AboutActivity" />
-
+        <activity android:name=".EditTransactionActivity" />
         <activity android:name=".AddReceitaActivity" />
 
         <provider
