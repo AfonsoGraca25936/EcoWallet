@@ -10,8 +10,10 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -22,7 +24,9 @@ import com.github.mikephil.charting.data.PieEntry
 import com.github.mikephil.charting.formatter.PercentFormatter
 import com.github.mikephil.charting.utils.ColorTemplate
 import com.google.android.material.floatingactionbutton.FloatingActionButton
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import pt.ipt.dam.ecowallet.api.RetrofitClient
 import pt.ipt.dam.ecowallet.database.AppDatabase
 import pt.ipt.dam.ecowallet.model.Despesa
@@ -45,7 +49,12 @@ class MainActivity : AppCompatActivity() {
     private var listaCompleta: List<Despesa> = emptyList()
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO)
         super.onCreate(savedInstanceState)
+
+        window.statusBarColor = Color.parseColor("#2E7D32")
+        WindowInsetsControllerCompat(window, window.decorView).isAppearanceLightStatusBars = false
+
         setContentView(R.layout.activity_main)
 
         database = AppDatabase.getDatabase(this)
@@ -54,7 +63,6 @@ class MainActivity : AppCompatActivity() {
         tvSaldo = findViewById(R.id.tvSaldo)
         pieChart = findViewById(R.id.pieChart)
 
-        // Configuração inicial do Gráfico para Percentagens
         pieChart.setUsePercentValues(true)
         pieChart.description.isEnabled = false
         pieChart.legend.isEnabled = false
@@ -98,63 +106,52 @@ class MainActivity : AppCompatActivity() {
         btnLogout.setOnClickListener { realizarLogout() }
         btnAbout.setOnClickListener { startActivity(Intent(this, AboutActivity::class.java)) }
 
-        btnShowDespesa.setOnClickListener {
-            atualizarGrafico(listaCompleta.filter { it.valor < 0 }, "Gastos (%)")
-        }
-        btnShowReceita.setOnClickListener {
-            atualizarGrafico(listaCompleta.filter { it.valor > 0 }, "Entradas (%)")
-        }
+        btnShowDespesa.setOnClickListener { atualizarGrafico(listaCompleta.filter { it.valor < 0 }, "Gastos (%)", true) }
+        btnShowReceita.setOnClickListener { atualizarGrafico(listaCompleta.filter { it.valor > 0 }, "Entradas (%)", false) }
 
         checkSessionAndLoad()
-        window.statusBarColor = Color.parseColor("#2E7D32")
-
     }
 
-    private fun atualizarGrafico(lista: List<Despesa>, titulo: String) {// Calcular o total da lista filtrada
+    private fun atualizarGrafico(lista: List<Despesa>, titulo: String, isDespesa: Boolean) {
         val totalSoma = lista.sumOf { abs(it.valor) }
-
-        val categoriasMap = lista.groupBy { it.categoria }
-            .mapValues { entry -> entry.value.sumOf { abs(it.valor) } }
+        val categoriasMap = lista.groupBy { it.categoria }.mapValues { it.value.sumOf { abs(it.valor) } }
 
         if (categoriasMap.isEmpty()) {
-            pieChart.clear()
-            pieChart.centerText = "Sem dados"
-            return
+            pieChart.clear(); pieChart.centerText = "Sem dados"; return
         }
 
         val entries = categoriasMap.map { PieEntry(it.value.toFloat(), it.key) }
-        val dataSet = PieDataSet(entries, "")
-        dataSet.colors = ColorTemplate.MATERIAL_COLORS.toList()
-        dataSet.valueTextSize = 12f
-        dataSet.valueTextColor = Color.BLACK
+        val dataSet = PieDataSet(entries, "").apply {
+            if (isDespesa) {
+                colors = listOf(Color.parseColor("#FF5252"), Color.parseColor("#D32F2F"), Color.parseColor("#B71C1C"), Color.parseColor("#8B0000"))
+            } else {
+                colors = ColorTemplate.MATERIAL_COLORS.toList()
+            }
+            valueTextSize = 12f; valueTextColor = Color.BLACK
+        }
 
-        val data = PieData(dataSet)
-        data.setValueFormatter(PercentFormatter(pieChart))
-
-        pieChart.data = data
-
-        // Configurar o texto central com o Título + Valor Total
+        pieChart.data = PieData(dataSet).apply { setValueFormatter(PercentFormatter(pieChart)) }
         pieChart.centerText = "$titulo\n${String.format("%.2f€", totalSoma)}"
-        pieChart.setCenterTextSize(16f) // Podes ajustar o tamanho se quiseres
-
-        pieChart.animateY(800)
-        pieChart.invalidate()
+        pieChart.animateY(800); pieChart.invalidate()
     }
 
     private fun loadDespesasLocais() {
         lifecycleScope.launch {
             listaCompleta = database.despesaDao().getAll()
             if (listaCompleta.isEmpty()) {
-                tvEmpty.visibility = View.VISIBLE
-                recyclerView.visibility = View.GONE
-                pieChart.visibility = View.GONE
+                tvEmpty.visibility = View.VISIBLE; recyclerView.visibility = View.GONE; pieChart.visibility = View.GONE
             } else {
-                tvEmpty.visibility = View.GONE
-                recyclerView.visibility = View.VISIBLE
-                pieChart.visibility = View.VISIBLE
+                tvEmpty.visibility = View.GONE; recyclerView.visibility = View.VISIBLE; pieChart.visibility = View.VISIBLE
                 adapter.updateList(listaCompleta)
-                atualizarGrafico(listaCompleta.filter { it.valor < 0 }, "Gastos (%)")
+                atualizarGrafico(listaCompleta.filter { it.valor < 0 }, "Gastos (%)", true)
             }
+        }
+    }
+
+    private fun realizarLogout() {
+        lifecycleScope.launch {
+            database.utilizadorDao().deleteAll(); database.despesaDao().deleteAll()
+            startActivity(Intent(this@MainActivity, LoginActivity::class.java)); finish()
         }
     }
 
@@ -166,10 +163,7 @@ class MainActivity : AppCompatActivity() {
                     response.body()?.let { despesasRemotas ->
                         lifecycleScope.launch {
                             database.despesaDao().deleteAll()
-                            despesasRemotas.forEach {
-                                it.isSynced = true
-                                database.despesaDao().insert(it)
-                            }
+                            despesasRemotas.forEach { it.isSynced = true; database.despesaDao().insert(it) }
                             loadDespesasLocais()
                         }
                     }
@@ -183,78 +177,36 @@ class MainActivity : AppCompatActivity() {
         lifecycleScope.launch {
             val user = database.utilizadorDao().getUtilizador()
             if (user == null) {
-                startActivity(Intent(this@MainActivity, LoginActivity::class.java))
-                finish()
+                startActivity(Intent(this@MainActivity, LoginActivity::class.java)); finish()
             } else {
-                currentUser = user
-                updateSaldoUI(user.saldo)
-                loadDespesasLocais()
-                syncDespesasAPI()
+                currentUser = user; updateSaldoUI(user.saldo); loadDespesasLocais(); syncDespesasAPI()
             }
         }
     }
 
-    private fun realizarLogout() {
-        lifecycleScope.launch {
-            database.utilizadorDao().logout()
-            database.despesaDao().deleteAll()
-            startActivity(Intent(this@MainActivity, LoginActivity::class.java))
-            finish()
-        }
-    }
-
-    private fun mostrarDialogoApagar(despesa: Despesa) {
-        AlertDialog.Builder(this)
-            .setTitle("Apagar")
-            .setMessage("Deseja apagar '${despesa.titulo}'?")
-            .setPositiveButton("Sim") { _, _ -> apagarDespesa(despesa) }
-            .setNegativeButton("Não", null)
-            .show()
-    }
-
-    private fun apagarDespesa(despesa: Despesa) {
-        lifecycleScope.launch {
-            currentUser?.let { user ->
-                val novoSaldo = user.saldo - despesa.valor
-                database.utilizadorDao().updateSaldo(user.id, novoSaldo)
-                currentUser = user.copy(saldo = novoSaldo)
-                updateSaldoUI(novoSaldo)
-                RetrofitClient.instance.updateSaldo(user.id, SaldoRequest(novoSaldo)).enqueue(object : Callback<Void> {
-                    override fun onResponse(call: Call<Void>, response: Response<Void>) {}
-                    override fun onFailure(call: Call<Void>, t: Throwable) {}
-                })
-            }
-            database.despesaDao().delete(despesa)
-            loadDespesasLocais()
-            if (despesa.id.isNotEmpty()) {
-                RetrofitClient.instance.deleteDespesa(despesa.id).enqueue(object : Callback<Void> {
-                    override fun onResponse(call: Call<Void>, response: Response<Void>) {}
-                    override fun onFailure(call: Call<Void>, t: Throwable) {}
-                })
-            }
-        }
-    }
-
-    private fun updateSaldoUI(valor: Double) {
-        tvSaldo.text = String.format("%.2f€", valor)
-    }
+    private fun updateSaldoUI(valor: Double) { tvSaldo.text = String.format("%.2f€", valor) }
 
     override fun onResume() {
         super.onResume()
-        if (currentUser != null) {
-            loadDespesasLocais()
-            syncDespesasAPI()
-            atualizarSaldoUser()
-        }
+        if (currentUser != null) { loadDespesasLocais(); syncDespesasAPI() }
     }
 
-    private fun atualizarSaldoUser() {
-        lifecycleScope.launch {
-            val user = database.utilizadorDao().getUtilizador()
-            user?.let {
-                currentUser = it
-                updateSaldoUI(it.saldo)
+    private fun mostrarDialogoApagar(despesa: Despesa) {
+        AlertDialog.Builder(this).setTitle("Apagar").setMessage("Apagar '${despesa.titulo}'?")
+            .setPositiveButton("Sim") { _, _ -> apagarDespesa(despesa) }
+            .setNegativeButton("Não", null).show()
+    }
+
+    private fun apagarDespesa(despesa: Despesa) {
+        lifecycleScope.launch(Dispatchers.IO) {
+            currentUser?.let { user ->
+                val novoSaldo = user.saldo - despesa.valor
+                database.utilizadorDao().updateSaldo(user.id, novoSaldo)
+                RetrofitClient.instance.updateSaldo(user.id, SaldoRequest(novoSaldo)).execute()
             }
+            database.despesaDao().delete(despesa)
+            if (despesa.id.isNotEmpty()) RetrofitClient.instance.deleteDespesa(despesa.id).execute()
+            withContext(Dispatchers.Main) { loadDespesasLocais() }
         }
     }
 }

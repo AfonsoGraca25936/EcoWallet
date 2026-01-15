@@ -9,7 +9,9 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.textfield.TextInputEditText
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import pt.ipt.dam.ecowallet.api.RetrofitClient
 import pt.ipt.dam.ecowallet.database.AppDatabase
 import pt.ipt.dam.ecowallet.model.Despesa
@@ -35,25 +37,12 @@ class EditTransactionActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_edit_transaction)
 
-        val mainContainer = findViewById<View>(R.id.mainContainer)
-        if (mainContainer != null) {
-            ViewCompat.setOnApplyWindowInsetsListener(mainContainer) { v, insets ->
-                val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-                val margem = (16 * resources.displayMetrics.density).toInt()
-                v.setPadding(margem, systemBars.top + margem, margem, systemBars.bottom + margem)
-                insets
-            }
-        }
-
         etTitulo = findViewById(R.id.etTitulo)
         etValor = findViewById(R.id.etValor)
         etCategoria = findViewById(R.id.etCategoria)
 
-        // Recuperar Dados
-        val intent = intent
         despesaId = intent.getStringExtra("ID") ?: ""
         userId = intent.getStringExtra("USER_ID") ?: ""
-
         val titulo = intent.getStringExtra("TITULO") ?: ""
         valorAntigo = intent.getDoubleExtra("VALOR", 0.0)
         val categoria = intent.getStringExtra("CATEGORIA") ?: ""
@@ -74,42 +63,30 @@ class EditTransactionActivity : AppCompatActivity() {
 
         if (novoTitulo.isEmpty() || novoValorStr.isEmpty()) return
 
-        val valorAbsoluto = novoValorStr.toDouble()
+        val valorAbsoluto = novoValorStr.toDoubleOrNull() ?: 0.0
         val novoValorFinal = if (valorAntigo < 0) -abs(valorAbsoluto) else abs(valorAbsoluto)
 
-        lifecycleScope.launch {
+        lifecycleScope.launch(Dispatchers.IO) {
             val db = AppDatabase.getDatabase(applicationContext)
-
-            // A. Corrigir Saldo
             val user = db.utilizadorDao().getUtilizador()
+
             if (user != null) {
                 val saldoCorrigido = user.saldo - valorAntigo + novoValorFinal
-                db.utilizadorDao().updateSaldo(user.id, saldoCorrigido)
-                atualizarCloud(user.id, saldoCorrigido)
+                val despesaEditada = Despesa(despesaId, user.id, novoTitulo, novoValorFinal, novaCategoria, dataOriginal, fotoCaminhoOriginal)
+
+                try {
+                    RetrofitClient.instance.updateSaldo(user.id, SaldoRequest(saldoCorrigido)).execute()
+                    val response = RetrofitClient.instance.updateDespesa(despesaId, despesaEditada).execute()
+
+                    if (response.isSuccessful) {
+                        db.utilizadorDao().updateSaldo(user.id, saldoCorrigido)
+                        db.despesaDao().insert(despesaEditada)
+                        withContext(Dispatchers.Main) { Toast.makeText(applicationContext, "Atualizado!", Toast.LENGTH_SHORT).show(); finish() }
+                    }
+                } catch (e: Exception) {
+                    withContext(Dispatchers.Main) { Toast.makeText(applicationContext, "Erro rede", Toast.LENGTH_SHORT).show() }
+                }
             }
-
-            // B. Atualizar na BD
-            val despesaAtualizada = Despesa(
-                id = despesaId,
-                titulo = novoTitulo,
-                valor = novoValorFinal,
-                categoria = novaCategoria,
-                data = dataOriginal,
-                fotoCaminho = fotoCaminhoOriginal, // <--- ADICIONADO AQUI
-                userId = userId
-            )
-            db.despesaDao().update(despesaAtualizada)
-
-            Toast.makeText(applicationContext, "Atualizado!", Toast.LENGTH_SHORT).show()
-            finish()
         }
-    }
-
-    private fun atualizarCloud(userId: String, novoSaldo: Double) {
-        val request = SaldoRequest(saldo = novoSaldo)
-        RetrofitClient.instance.updateSaldo(userId, request).enqueue(object : Callback<Void> {
-            override fun onResponse(call: Call<Void>, response: Response<Void>) {}
-            override fun onFailure(call: Call<Void>, t: Throwable) {}
-        })
     }
 }

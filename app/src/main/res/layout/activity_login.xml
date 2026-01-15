@@ -94,6 +94,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="12dp"
                 android:text="Impressão Digital"
+                android:textSize="16sp"
                 android:visibility="gone"
                 android:drawableLeft="@android:drawable/ic_secure"
                 app:cornerRadius="12dp"/>

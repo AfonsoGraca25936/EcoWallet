@@ -85,6 +85,10 @@ class LoginActivity : AppCompatActivity() {
                     loginResponse.user?.let { u ->
                         lifecycleScope.launch(Dispatchers.IO) {
                             try {
+                                // LIMPA DADOS DE CONTAS ANTERIORES
+                                database.utilizadorDao().deleteAll()
+                                database.despesaDao().deleteAll()
+
                                 saveCredentialsEncrypted(user, pass)
                                 database.utilizadorDao().insert(u)
                                 withContext(Dispatchers.Main) {
@@ -94,7 +98,7 @@ class LoginActivity : AppCompatActivity() {
                                 }
                             } catch (e: Exception) {
                                 withContext(Dispatchers.Main) {
-                                    Toast.makeText(applicationContext, "Erro BD: ${e.javaClass.simpleName}", Toast.LENGTH_LONG).show()
+                                    Toast.makeText(applicationContext, "Erro BD: ${e.toString()}", Toast.LENGTH_LONG).show()
                                 }
                             }
                         }
