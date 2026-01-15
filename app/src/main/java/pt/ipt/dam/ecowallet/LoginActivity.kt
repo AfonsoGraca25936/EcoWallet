@@ -57,13 +57,14 @@ class LoginActivity : AppCompatActivity() {
         }
 
         database = AppDatabase.getDatabase(this)
-        checkBiometricAvailability()
-
+        
+        val etUser = findViewById<TextInputEditText>(R.id.etUsername)
+        val etPass = findViewById<TextInputEditText>(R.id.etPassword)
         val btnLogin = findViewById<Button>(R.id.btnLogin)
         val btnBiometric = findViewById<Button>(R.id.btnBiometric)
         val tvRegister = findViewById<TextView>(R.id.tvRegister)
-        val etUser = findViewById<TextInputEditText>(R.id.etUsername)
-        val etPass = findViewById<TextInputEditText>(R.id.etPassword)
+
+        checkBiometricAvailability()
 
         btnLogin.setOnClickListener {
             val user = etUser.text.toString()
@@ -89,7 +90,9 @@ class LoginActivity : AppCompatActivity() {
                                 database.utilizadorDao().deleteAll()
                                 database.despesaDao().deleteAll()
 
+                                // Guardamos as credenciais vinculadas ao username
                                 saveCredentialsEncrypted(user, pass)
+                                
                                 database.utilizadorDao().insert(u)
                                 withContext(Dispatchers.Main) {
                                     Toast.makeText(applicationContext, "Sucesso!", Toast.LENGTH_SHORT).show()
@@ -119,7 +122,6 @@ class LoginActivity : AppCompatActivity() {
             val key = MasterKey.Builder(this).setKeyScheme(MasterKey.KeyScheme.AES256_GCM).build()
             EncryptedSharedPreferences.create(this, name, key, EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV, EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM)
         } catch (e: Exception) {
-            getSharedPreferences(name, Context.MODE_PRIVATE).edit().clear().apply()
             val file = File(filesDir.parent, "shared_prefs/$name.xml")
             if (file.exists()) file.delete()
             val key = MasterKey.Builder(this).setKeyScheme(MasterKey.KeyScheme.AES256_GCM).build()
@@ -128,27 +130,57 @@ class LoginActivity : AppCompatActivity() {
     }
 
     private fun saveCredentialsEncrypted(user: String, pass: String) {
-        getEncryptedPrefs().edit().putString("username", user).putString("password", pass).putBoolean("biometric_enabled", true).apply()
+        getEncryptedPrefs().edit().apply {
+            putString("pass_$user", pass)
+            putBoolean("bio_enabled_$user", true)
+            putString("last_user", user)
+            apply()
+        }
     }
 
     private fun checkBiometricAvailability() {
         try {
-            if (getEncryptedPrefs().getBoolean("biometric_enabled", false)) {
+            val prefs = getEncryptedPrefs()
+            val lastUser = prefs.getString("last_user", "") ?: ""
+            if (lastUser.isNotEmpty()) {
                 findViewById<Button>(R.id.btnBiometric).visibility = android.view.View.VISIBLE
+                val etUser = findViewById<TextInputEditText>(R.id.etUsername)
+                if (etUser.text.isNullOrEmpty()) {
+                    etUser.setText(lastUser)
+                }
             }
         } catch (e: Exception) {}
     }
 
     private fun showBiometricPrompt() {
+        val etUser = findViewById<TextInputEditText>(R.id.etUsername)
+        val user = etUser.text.toString()
+
+        if (user.isEmpty()) {
+            Toast.makeText(this, "Insira o nome de utilizador", Toast.LENGTH_SHORT).show()
+            return
+        }
+
         val executor = ContextCompat.getMainExecutor(this)
         val biometricPrompt = BiometricPrompt(this, executor, object : BiometricPrompt.AuthenticationCallback() {
             override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
                 super.onAuthenticationSucceeded(result)
                 val prefs = getEncryptedPrefs()
-                performLogin(prefs.getString("username", "") ?: "", prefs.getString("password", "") ?: "")
+                val pass = prefs.getString("pass_$user", "") ?: ""
+                
+                if (pass.isNotEmpty()) {
+                    performLogin(user, pass)
+                } else {
+                    Toast.makeText(applicationContext, "Impressão digital não configurada para este utilizador", Toast.LENGTH_LONG).show()
+                }
             }
         })
-        val promptInfo = BiometricPrompt.PromptInfo.Builder().setTitle("Login").setSubtitle("Use a digital").setNegativeButtonText("Cancelar").build()
+        
+        val promptInfo = BiometricPrompt.PromptInfo.Builder()
+            .setTitle("Login Biométrico")
+            .setSubtitle("Entrar como $user")
+            .setNegativeButtonText("Cancelar")
+            .build()
         biometricPrompt.authenticate(promptInfo)
     }
 }
