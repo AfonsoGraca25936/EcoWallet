@@ -1,25 +1,27 @@
-<?xml version="1.0" encoding="utf-8"?>
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+<?xml version="1.0" encoding="utf-8"?><ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/mainContainer"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:fitsSystemWindows="false"
-    android:padding="16dp"
-    android:background="@color/white">
+    android:background="@color/white"
+    android:fillViewport="true">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical">
+        android:orientation="vertical"
+        android:padding="16dp"
+        android:gravity="center_vertical">
 
         <TextView
+            android:id="@+id/tvTituloEcra"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="Editar Transação"
             android:textSize="24sp"
             android:textStyle="bold"
-            android:textColor="@color/eco_primary"
+            android:textColor="@color/income_green"
             android:layout_marginBottom="24dp"/>
 
         <com.google.android.material.textfield.TextInputLayout
@@ -27,10 +29,11 @@
             android:layout_height="wrap_content"
             android:layout_marginBottom="16dp"
             app:boxBackgroundColor="@color/eco_background"
+            app:boxCornerRadiusTopStart="8dp"
+            app:boxCornerRadiusTopEnd="8dp"
             android:hint="Descrição">
             <com.google.android.material.textfield.TextInputEditText
                 android:id="@+id/etTitulo"
-                android:inputType="textCapSentences"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"/>
         </com.google.android.material.textfield.TextInputLayout>
@@ -56,7 +59,6 @@
             android:hint="Categoria">
             <com.google.android.material.textfield.TextInputEditText
                 android:id="@+id/etCategoria"
-                android:inputType="textCapWords"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"/>
         </com.google.android.material.textfield.TextInputLayout>
@@ -69,7 +71,6 @@
             android:textSize="16sp"
             android:textStyle="bold"
             app:cornerRadius="12dp"
-            android:backgroundTint="@color/eco_primary"/>
-
+            android:backgroundTint="@color/income_green"/>
     </LinearLayout>
 </ScrollView>

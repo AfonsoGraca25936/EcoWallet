@@ -31,6 +31,16 @@ class AddReceitaActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_add_receita)
 
+        // --- CORREÇÃO DE MARGENS ---
+        val mainContainer = findViewById<View>(R.id.mainContainer)
+        ViewCompat.setOnApplyWindowInsetsListener(mainContainer) { v, insets ->
+            val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            val margemBase = (16 * resources.displayMetrics.density).toInt()
+            // Aplica padding lateral fixo + sistema, e vertical centrado
+            v.setPadding(systemBars.left + margemBase, systemBars.top + margemBase, systemBars.right + margemBase, systemBars.bottom + margemBase)
+            insets
+        }
+
         etValor = findViewById(R.id.etValor)
         etTitulo = findViewById(R.id.etTitulo)
         etCategoria = findViewById(R.id.etCategoria)
@@ -55,7 +65,7 @@ class AddReceitaActivity : AppCompatActivity() {
                 val dataHoje = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(Date())
 
                 val novaReceita = Despesa(
-                    id = UUID.randomUUID().toString(), // ID Único
+                    id = UUID.randomUUID().toString(),
                     titulo = titulo,
                     valor = valor,
                     categoria = categoria,
@@ -65,7 +75,6 @@ class AddReceitaActivity : AppCompatActivity() {
                 )
 
                 try {
-                    // Atualizar na API
                     RetrofitClient.instance.updateSaldo(user.id, SaldoRequest(novoSaldo)).execute()
                     val res = RetrofitClient.instance.addDespesa(novaReceita).execute()
 

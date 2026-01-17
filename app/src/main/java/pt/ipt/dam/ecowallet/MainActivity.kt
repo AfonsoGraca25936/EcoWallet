@@ -106,10 +106,27 @@ class MainActivity : AppCompatActivity() {
         btnLogout.setOnClickListener { realizarLogout() }
         btnAbout.setOnClickListener { startActivity(Intent(this, AboutActivity::class.java)) }
 
-        btnShowDespesa.setOnClickListener { atualizarGrafico(listaCompleta.filter { it.valor < 0 }, "Gastos (%)", true) }
-        btnShowReceita.setOnClickListener { atualizarGrafico(listaCompleta.filter { it.valor > 0 }, "Entradas (%)", false) }
+        btnShowDespesa.setOnClickListener { atualizarGrafico(listaCompleta.filter { it.valor < 0 }, "Gastos ", true) }
+        btnShowReceita.setOnClickListener { atualizarGrafico(listaCompleta.filter { it.valor > 0 }, "Entradas ", false) }
 
         checkSessionAndLoad()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        recuperarDadosUtilizador()
+    }
+
+    private fun recuperarDadosUtilizador() {
+        lifecycleScope.launch {
+            val user = database.utilizadorDao().getUtilizador()
+            user?.let {
+                currentUser = it
+                updateSaldoUI(it.saldo)
+            }
+            loadDespesasLocais()
+            syncDespesasAPI()
+        }
     }
 
     private fun atualizarGrafico(lista: List<Despesa>, titulo: String, isDespesa: Boolean) {
@@ -145,6 +162,9 @@ class MainActivity : AppCompatActivity() {
                 adapter.updateList(listaCompleta)
                 atualizarGrafico(listaCompleta.filter { it.valor < 0 }, "Gastos (%)", true)
             }
+            // Garante que o saldo está atualizado com o que está na BD
+            val user = database.utilizadorDao().getUtilizador()
+            user?.let { updateSaldoUI(it.saldo) }
         }
     }
 
@@ -186,26 +206,43 @@ class MainActivity : AppCompatActivity() {
 
     private fun updateSaldoUI(valor: Double) { tvSaldo.text = String.format("%.2f€", valor) }
 
-    override fun onResume() {
-        super.onResume()
-        if (currentUser != null) { loadDespesasLocais(); syncDespesasAPI() }
-    }
-
     private fun mostrarDialogoApagar(despesa: Despesa) {
-        AlertDialog.Builder(this).setTitle("Apagar").setMessage("Apagar '${despesa.titulo}'?")
+        AlertDialog.Builder(this).setTitle("Apagar").setMessage("Deseja apagar '${despesa.titulo}'?")
             .setPositiveButton("Sim") { _, _ -> apagarDespesa(despesa) }
             .setNegativeButton("Não", null).show()
     }
 
     private fun apagarDespesa(despesa: Despesa) {
         lifecycleScope.launch(Dispatchers.IO) {
-            currentUser?.let { user ->
-                val novoSaldo = user.saldo - despesa.valor
-                database.utilizadorDao().updateSaldo(user.id, novoSaldo)
-                RetrofitClient.instance.updateSaldo(user.id, SaldoRequest(novoSaldo)).execute()
+            val user = database.utilizadorDao().getUtilizador()
+            user?.let { u ->
+                // Subtraímos o valor da despesa (lembrando que despesas são negativas,
+                // logo Saldo - (-50) = Saldo + 50, o que devolve o dinheiro ao saldo)
+                val novoSaldo = u.saldo - despesa.valor
+
+                // 1. Atualiza na BD local
+                database.utilizadorDao().updateSaldo(u.id, novoSaldo)
+
+                // 2. Atualiza no Servidor
+                try {
+                    RetrofitClient.instance.updateSaldo(u.id, SaldoRequest(novoSaldo)).execute()
+                } catch (e: Exception) { e.printStackTrace() }
+
+                // 3. Atualiza a variável local para a UI mudar instantaneamente
+                withContext(Dispatchers.Main) {
+                    currentUser = u.copy(saldo = novoSaldo)
+                    updateSaldoUI(novoSaldo)
+                }
             }
+
+            // 4. Apaga a transação local e remota
             database.despesaDao().delete(despesa)
-            if (despesa.id.isNotEmpty()) RetrofitClient.instance.deleteDespesa(despesa.id).execute()
+            if (despesa.id.isNotEmpty()) {
+                try {
+                    RetrofitClient.instance.deleteDespesa(despesa.id).execute()
+                } catch (e: Exception) { e.printStackTrace() }
+            }
+
             withContext(Dispatchers.Main) { loadDespesasLocais() }
         }
     }
