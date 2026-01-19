@@ -46,11 +46,15 @@ class DespesaAdapter(
             holder.tvValor.setTextColor(Color.parseColor("#F44336")) // Vermelho
         }
 
-        // Carregamento de Imagem
+        // Carregamento de Imagem (Miniatura da Fatura)
         if (!despesa.fotoCaminho.isNullOrEmpty()) {
-            val file = File(despesa.fotoCaminho)
+            val file = File(despesa.fotoCaminho!!)
             if (file.exists()) {
-                holder.ivDespesaThumb.load(file)
+                holder.ivDespesaThumb.load(file) {
+                    crossfade(true)
+                    placeholder(R.mipmap.ic_launcher)
+                    error(R.mipmap.ic_launcher)
+                }
             } else {
                 holder.ivDespesaThumb.load(R.mipmap.ic_launcher)
             }

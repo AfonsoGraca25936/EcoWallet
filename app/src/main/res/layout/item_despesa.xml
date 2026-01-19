@@ -64,6 +64,7 @@
             app:layout_constraintBottom_toBottomOf="parent"
             android:layout_marginEnd="8dp"/>
 
+
         <ImageView
             android:id="@+id/btnDelete"
             android:layout_width="24dp"

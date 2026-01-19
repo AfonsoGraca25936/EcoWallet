@@ -1,12 +1,16 @@
 package pt.ipt.dam.ecowallet
 
 import android.graphics.Color
+import android.net.Uri
 import android.os.Bundle
+import android.os.Environment
 import android.view.View
 import android.widget.Button
 import android.widget.ImageView
 import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.FileProvider
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -19,9 +23,7 @@ import pt.ipt.dam.ecowallet.api.RetrofitClient
 import pt.ipt.dam.ecowallet.database.AppDatabase
 import pt.ipt.dam.ecowallet.model.Despesa
 import pt.ipt.dam.ecowallet.model.SaldoRequest
-import retrofit2.Call
-import retrofit2.Callback
-import retrofit2.Response
+import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -35,11 +37,21 @@ class AddDespesaActivity : AppCompatActivity() {
     private lateinit var etCategoria: TextInputEditText
     private lateinit var ivPreview: ImageView
     private var currentPhotoPath: String? = null
+    private var photoUri: Uri? = null
+
+    // Launcher para abrir a câmara e processar o resultado
+    private val takePictureLauncher = registerForActivityResult(ActivityResultContracts.TakePicture()) { success ->
+        if (success && photoUri != null) {
+            ivPreview.visibility = View.VISIBLE
+            ivPreview.setImageURI(photoUri)
+        } else {
+            Toast.makeText(this, "Foto cancelada", Toast.LENGTH_SHORT).show()
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Garante o topo verde e ícones brancos
         window.statusBarColor = Color.parseColor("#2E7D32")
         WindowInsetsControllerCompat(window, window.decorView).isAppearanceLightStatusBars = false
 
@@ -49,7 +61,7 @@ class AddDespesaActivity : AppCompatActivity() {
         ViewCompat.setOnApplyWindowInsetsListener(mainContainer) { v, insets ->
             val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
             val margem = (16 * resources.displayMetrics.density).toInt()
-            v.setPadding(margem, 0, margem, systemBars.bottom + margem) // Topo a 0
+            v.setPadding(margem, 0, margem, systemBars.bottom + margem)
             insets
         }
 
@@ -58,7 +70,33 @@ class AddDespesaActivity : AppCompatActivity() {
         etCategoria = findViewById(R.id.etCategoria)
         ivPreview = findViewById(R.id.ivPreview)
 
+        findViewById<Button>(R.id.btnFoto).setOnClickListener { tirarFoto() }
         findViewById<Button>(R.id.btnGuardar).setOnClickListener { guardarDespesa() }
+    }
+
+    private fun tirarFoto() {
+        val photoFile = criarFicheiroImagem()
+        if (photoFile != null) {
+            val authority = "${applicationContext.packageName}.fileprovider"
+            // Criamos uma constante local 'uri' que o Kotlin sabe que não é nula
+            val uri = FileProvider.getUriForFile(this, authority, photoFile)
+            photoUri = uri
+            takePictureLauncher.launch(uri)
+        }
+    }
+
+    private fun criarFicheiroImagem(): File? {
+        return try {
+            val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
+            val storageDir = getExternalFilesDir(Environment.DIRECTORY_PICTURES) // <--- GARANTA ISTO
+            if (storageDir?.exists() == false) storageDir.mkdirs()
+            File.createTempFile("FATURA_${timeStamp}_", ".jpg", storageDir).apply {
+                currentPhotoPath = absolutePath
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
     }
 
     private fun guardarDespesa() {
@@ -71,7 +109,6 @@ class AddDespesaActivity : AppCompatActivity() {
             return
         }
 
-        // Despesa deve ser negativa
         val valorDespesa = -abs(valorStr.toDoubleOrNull() ?: 0.0)
 
         lifecycleScope.launch(Dispatchers.IO) {
@@ -82,7 +119,6 @@ class AddDespesaActivity : AppCompatActivity() {
                 val novoSaldo = user.saldo + valorDespesa
                 val dataHoje = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(Date())
 
-                // Geramos um ID ÚNICO para o MongoDB
                 val novaDespesa = Despesa(
                     id = UUID.randomUUID().toString(),
                     titulo = titulo,
@@ -94,25 +130,22 @@ class AddDespesaActivity : AppCompatActivity() {
                 )
 
                 try {
-                    // 1. Atualizar Saldo na API
                     val saldoReq = SaldoRequest(saldo = novoSaldo)
                     RetrofitClient.instance.updateSaldo(user.id, saldoReq).execute()
 
-                    // 2. Enviar Transação (Despesa) para a API
                     val response = RetrofitClient.instance.addDespesa(novaDespesa).execute()
 
                     if (response.isSuccessful) {
-                        // 3. Atualizar localmente apenas se a API aceitou
                         db.utilizadorDao().updateSaldo(user.id, novoSaldo)
                         db.despesaDao().insert(novaDespesa.apply { isSynced = true })
 
                         withContext(Dispatchers.Main) {
-                            Toast.makeText(applicationContext, "Despesa registada!", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(applicationContext, "Despesa registada com sucesso!", Toast.LENGTH_SHORT).show()
                             finish()
                         }
                     } else {
                         withContext(Dispatchers.Main) {
-                            Toast.makeText(applicationContext, "Erro no servidor ao guardar despesa", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(applicationContext, "Erro no servidor ao guardar", Toast.LENGTH_SHORT).show()
                         }
                     }
                 } catch (e: Exception) {
