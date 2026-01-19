@@ -74,6 +74,8 @@ class MainActivity : AppCompatActivity() {
         val btnShowReceita = findViewById<Button>(R.id.btnShowReceita)
         val fabAdd = findViewById<FloatingActionButton>(R.id.fabAdd)
         val fabReceita = findViewById<FloatingActionButton>(R.id.fabReceita)
+        val btnShowResumo = findViewById<Button>(R.id.btnShowResumo)
+        btnShowResumo.setOnClickListener { mostrarGraficoResumo() }
 
         val mainView = findViewById<View>(R.id.main)
         ViewCompat.setOnApplyWindowInsetsListener(mainView) { v, insets ->
@@ -150,6 +152,30 @@ class MainActivity : AppCompatActivity() {
         pieChart.data = PieData(dataSet).apply { setValueFormatter(PercentFormatter(pieChart)) }
         pieChart.centerText = "$titulo\n${String.format("%.2f€", totalSoma)}"
         pieChart.animateY(800); pieChart.invalidate()
+    }
+
+    private fun mostrarGraficoResumo() {
+        val totalReceitas = listaCompleta.filter { it.valor > 0 }.sumOf { it.valor }
+        val totalDespesas = listaCompleta.filter { it.valor < 0 }.sumOf { abs(it.valor) }
+
+        if (totalReceitas == 0.0 && totalDespesas == 0.0) {
+            pieChart.clear(); pieChart.centerText = "Sem dados"; return
+        }
+
+        val entries = mutableListOf<PieEntry>()
+        if (totalReceitas > 0) entries.add(PieEntry(totalReceitas.toFloat(), "Receitas"))
+        if (totalDespesas > 0) entries.add(PieEntry(totalDespesas.toFloat(), "Despesas"))
+
+        val dataSet = PieDataSet(entries, "").apply {
+            colors = listOf(Color.parseColor("#4CAF50"), Color.parseColor("#F44336")) // VERDE e VERMELHO
+            valueTextSize = 14f
+            valueTextColor = Color.WHITE
+        }
+
+        pieChart.data = PieData(dataSet).apply { setValueFormatter(PercentFormatter(pieChart)) }
+        pieChart.centerText = "Balanço Geral\n${String.format("%.2f€", totalReceitas - totalDespesas)}"
+        pieChart.animateY(800)
+        pieChart.invalidate()
     }
 
     private fun loadDespesasLocais() {
