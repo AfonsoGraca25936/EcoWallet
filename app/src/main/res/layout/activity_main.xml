@@ -39,6 +39,19 @@
                     android:layout_marginTop="48dp"
                     app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintTop_toTopOf="parent"/>
+
+                <!-- NOVO BOTÃO CALENDÁRIO -->
+                <ImageView
+                    android:id="@+id/btnCalendar"
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
+                    android:src="@android:drawable/ic_menu_today"
+                    app:tint="@color/white"
+                    android:layout_marginEnd="16dp"
+                    app:layout_constraintEnd_toStartOf="@id/btnAbout"
+                    app:layout_constraintTop_toTopOf="@id/tvAppTitle"
+                    app:layout_constraintBottom_toBottomOf="@id/tvAppTitle"/>
+
                 <ImageView
                     android:id="@+id/btnAbout"
                     android:layout_width="32dp"
@@ -101,9 +114,9 @@
                             android:layout_weight="1"
                             android:layout_height="wrap_content"
                             android:text="Despesas"
-                            android:textSize="12sp"
+                            android:textSize="10sp"
                             android:backgroundTint="@color/expense_red"
-                            android:layout_marginEnd="8dp"/>
+                            android:layout_marginEnd="4dp"/>
                         <Button android:id="@+id/btnShowResumo"
                             android:layout_width="0dp"
                             android:layout_weight="1"
@@ -117,7 +130,7 @@
                             android:layout_weight="1"
                             android:layout_height="wrap_content"
                             android:text="Receitas"
-                            android:textSize="12sp"
+                            android:textSize="10sp"
                             android:backgroundTint="@color/income_green"/>
                     </LinearLayout>
                     <com.github.mikephil.charting.charts.PieChart android:id="@+id/pieChart"

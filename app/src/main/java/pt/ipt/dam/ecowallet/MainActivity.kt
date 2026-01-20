@@ -70,12 +70,15 @@ class MainActivity : AppCompatActivity() {
 
         val btnLogout = findViewById<ImageView>(R.id.btnLogout)
         val btnAbout = findViewById<ImageView>(R.id.btnAbout)
+        val btnCalendar = findViewById<ImageView>(R.id.btnCalendar) // NOVO BOTÃO
         val btnShowDespesa = findViewById<Button>(R.id.btnShowDespesa)
         val btnShowReceita = findViewById<Button>(R.id.btnShowReceita)
         val fabAdd = findViewById<FloatingActionButton>(R.id.fabAdd)
         val fabReceita = findViewById<FloatingActionButton>(R.id.fabReceita)
         val btnShowResumo = findViewById<Button>(R.id.btnShowResumo)
+        
         btnShowResumo.setOnClickListener { mostrarGraficoResumo() }
+        btnCalendar.setOnClickListener { startActivity(Intent(this, CalendarActivity::class.java)) } // LIGAR CALENDÁRIO
 
         val mainView = findViewById<View>(R.id.main)
         ViewCompat.setOnApplyWindowInsetsListener(mainView) { v, insets ->
@@ -242,33 +245,22 @@ class MainActivity : AppCompatActivity() {
         lifecycleScope.launch(Dispatchers.IO) {
             val user = database.utilizadorDao().getUtilizador()
             user?.let { u ->
-                // Subtraímos o valor da despesa (lembrando que despesas são negativas,
-                // logo Saldo - (-50) = Saldo + 50, o que devolve o dinheiro ao saldo)
                 val novoSaldo = u.saldo - despesa.valor
-
-                // 1. Atualiza na BD local
                 database.utilizadorDao().updateSaldo(u.id, novoSaldo)
-
-                // 2. Atualiza no Servidor
                 try {
                     RetrofitClient.instance.updateSaldo(u.id, SaldoRequest(novoSaldo)).execute()
                 } catch (e: Exception) { e.printStackTrace() }
-
-                // 3. Atualiza a variável local para a UI mudar instantaneamente
                 withContext(Dispatchers.Main) {
                     currentUser = u.copy(saldo = novoSaldo)
                     updateSaldoUI(novoSaldo)
                 }
             }
-
-            // 4. Apaga a transação local e remota
             database.despesaDao().delete(despesa)
             if (despesa.id.isNotEmpty()) {
                 try {
                     RetrofitClient.instance.deleteDespesa(despesa.id).execute()
                 } catch (e: Exception) { e.printStackTrace() }
             }
-
             withContext(Dispatchers.Main) { loadDespesasLocais() }
         }
     }
