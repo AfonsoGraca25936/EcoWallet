@@ -3,11 +3,11 @@ package pt.ipt.dam.ecowallet
 import android.os.Bundle
 import android.view.View
 import android.widget.Button
+import android.widget.ImageView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.view.ViewCompat
-import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.lifecycleScope
+import coil.load
 import com.google.android.material.textfield.TextInputEditText
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -16,9 +16,7 @@ import pt.ipt.dam.ecowallet.api.RetrofitClient
 import pt.ipt.dam.ecowallet.database.AppDatabase
 import pt.ipt.dam.ecowallet.model.Despesa
 import pt.ipt.dam.ecowallet.model.SaldoRequest
-import retrofit2.Call
-import retrofit2.Callback
-import retrofit2.Response
+import java.io.File
 import kotlin.math.abs
 
 class EditTransactionActivity : AppCompatActivity() {
@@ -26,6 +24,7 @@ class EditTransactionActivity : AppCompatActivity() {
     private lateinit var etTitulo: TextInputEditText
     private lateinit var etValor: TextInputEditText
     private lateinit var etCategoria: TextInputEditText
+    private lateinit var ivEditPreview: ImageView
 
     private var despesaId: String = ""
     private var userId: String = ""
@@ -40,6 +39,7 @@ class EditTransactionActivity : AppCompatActivity() {
         etTitulo = findViewById(R.id.etTitulo)
         etValor = findViewById(R.id.etValor)
         etCategoria = findViewById(R.id.etCategoria)
+        ivEditPreview = findViewById(R.id.ivEditPreview)
 
         despesaId = intent.getStringExtra("ID") ?: ""
         userId = intent.getStringExtra("USER_ID") ?: ""
@@ -52,6 +52,15 @@ class EditTransactionActivity : AppCompatActivity() {
         etTitulo.setText(titulo)
         etValor.setText(abs(valorAntigo).toString())
         etCategoria.setText(categoria)
+
+        // Exibir a imagem da fatura se existir
+        if (!fotoCaminhoOriginal.isNullOrEmpty()) {
+            val file = File(fotoCaminhoOriginal!!)
+            if (file.exists()) {
+                ivEditPreview.visibility = View.VISIBLE
+                ivEditPreview.load(file)
+            }
+        }
 
         findViewById<Button>(R.id.btnUpdate).setOnClickListener { atualizarTransacao() }
     }

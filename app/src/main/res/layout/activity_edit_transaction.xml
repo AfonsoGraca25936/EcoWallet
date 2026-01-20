@@ -1,4 +1,5 @@
-<?xml version="1.0" encoding="utf-8"?><ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/mainContainer"
     android:layout_width="match_parent"
@@ -23,6 +24,16 @@
             android:textStyle="bold"
             android:textColor="@color/income_green"
             android:layout_marginBottom="24dp"/>
+
+        <!-- NOVO: Preview da Imagem -->
+        <ImageView
+            android:id="@+id/ivEditPreview"
+            android:layout_width="match_parent"
+            android:layout_height="200dp"
+            android:layout_marginBottom="16dp"
+            android:scaleType="centerCrop"
+            android:visibility="gone"
+            android:background="#F0F0F0"/>
 
         <com.google.android.material.textfield.TextInputLayout
             android:layout_width="match_parent"
