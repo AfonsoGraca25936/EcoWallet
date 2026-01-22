@@ -4,7 +4,7 @@
     android:id="@+id/mainContainer"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:fitsSystemWindows="false"
+    android:fitsSystemWindows="true"
     android:background="@color/white"
     android:fillViewport="true">
 
@@ -25,15 +25,43 @@
             android:textColor="@color/income_green"
             android:layout_marginBottom="24dp"/>
 
-        <!-- NOVO: Preview da Imagem -->
-        <ImageView
-            android:id="@+id/ivEditPreview"
+        <!-- Container da Foto -->
+        <FrameLayout
+            android:id="@+id/layoutFoto"
             android:layout_width="match_parent"
-            android:layout_height="200dp"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp">
+
+            <ImageView
+                android:id="@+id/ivEditPreview"
+                android:layout_width="match_parent"
+                android:layout_height="200dp"
+                android:scaleType="centerCrop"
+                android:visibility="gone"
+                android:background="#F0F0F0"/>
+
+            <ImageButton
+                android:id="@+id/btnRemoveFoto"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_gravity="top|end"
+                android:layout_margin="8dp"
+                android:background="@android:color/transparent"
+                android:src="@android:drawable/ic_menu_close_clear_cancel"
+                app:tint="@color/expense_red"
+                android:visibility="gone"
+                android:contentDescription="Remover foto" />
+        </FrameLayout>
+
+        <!-- Botão para Adicionar Foto -->
+        <Button
+            android:id="@+id/btnEditFoto"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Anexar Foto da Fatura"
+            android:backgroundTint="@color/text_secondary"
             android:layout_marginBottom="16dp"
-            android:scaleType="centerCrop"
-            android:visibility="gone"
-            android:background="#F0F0F0"/>
+            android:visibility="visible" />
 
         <com.google.android.material.textfield.TextInputLayout
             android:layout_width="match_parent"

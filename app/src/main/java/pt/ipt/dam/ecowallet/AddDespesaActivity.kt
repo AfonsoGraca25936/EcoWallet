@@ -1,5 +1,7 @@
 package pt.ipt.dam.ecowallet
 
+import android.Manifest
+import android.content.pm.PackageManager
 import android.graphics.Color
 import android.net.Uri
 import android.os.Bundle
@@ -10,6 +12,7 @@ import android.widget.ImageView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
@@ -38,6 +41,19 @@ class AddDespesaActivity : AppCompatActivity() {
     private lateinit var ivPreview: ImageView
     private var currentPhotoPath: String? = null
     private var photoUri: Uri? = null
+
+    // Launcher para pedir permissão da câmara
+    private val requestPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted: Boolean ->
+        if (isGranted) {
+            // Permissão concedida, abrir câmara
+            iniciarCamara()
+        } else {
+            // Permissão negada
+            Toast.makeText(this, "A permissão da câmara é necessária para tirar a foto da fatura.", Toast.LENGTH_LONG).show()
+        }
+    }
 
     // Launcher para abrir a câmara e processar o resultado
     private val takePictureLauncher = registerForActivityResult(ActivityResultContracts.TakePicture()) { success ->
@@ -70,15 +86,27 @@ class AddDespesaActivity : AppCompatActivity() {
         etCategoria = findViewById(R.id.etCategoria)
         ivPreview = findViewById(R.id.ivPreview)
 
-        findViewById<Button>(R.id.btnFoto).setOnClickListener { tirarFoto() }
+        findViewById<Button>(R.id.btnFoto).setOnClickListener { verificarPermissaoETirarFoto() }
         findViewById<Button>(R.id.btnGuardar).setOnClickListener { guardarDespesa() }
     }
 
-    private fun tirarFoto() {
+    private fun verificarPermissaoETirarFoto() {
+        when {
+            ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED -> {
+                // Já temos permissão
+                iniciarCamara()
+            }
+            else -> {
+                // Pedir permissão
+                requestPermissionLauncher.launch(Manifest.permission.CAMERA)
+            }
+        }
+    }
+
+    private fun iniciarCamara() {
         val photoFile = criarFicheiroImagem()
         if (photoFile != null) {
             val authority = "${applicationContext.packageName}.fileprovider"
-            // Criamos uma constante local 'uri' que o Kotlin sabe que não é nula
             val uri = FileProvider.getUriForFile(this, authority, photoFile)
             photoUri = uri
             takePictureLauncher.launch(uri)
@@ -88,7 +116,7 @@ class AddDespesaActivity : AppCompatActivity() {
     private fun criarFicheiroImagem(): File? {
         return try {
             val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
-            val storageDir = getExternalFilesDir(Environment.DIRECTORY_PICTURES) // <--- GARANTA ISTO
+            val storageDir = getExternalFilesDir(Environment.DIRECTORY_PICTURES)
             if (storageDir?.exists() == false) storageDir.mkdirs()
             File.createTempFile("FATURA_${timeStamp}_", ".jpg", storageDir).apply {
                 currentPhotoPath = absolutePath
